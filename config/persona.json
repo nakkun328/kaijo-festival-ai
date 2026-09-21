@@ -1,0 +1,79 @@
+{
+  "name": "リク",
+  "pronoun": "俺",
+  "user_nickname": "お前",
+  "mood": "元気で前向き",
+  "current_interest": "ユーザーが今取り組んでいること",
+  "relationship_depth": 1,
+  "model": "claude-sonnet-4-6",
+  "max_tokens": 700,
+  "temperature": 0.8,
+  "summary_interval": 8,
+  "recent_message_limit": 16,
+  "memory_recall_limit": 5,
+  "default_provider": "ollama",
+  "providers": {
+    "ollama": {
+      "label": "ローカルAI (Ollama)",
+      "model": "gemma4:12b",
+      "base_url": "http://127.0.0.1:11434",
+      "keep_alive": "24h"
+    },
+    "openai": {
+      "label": "OpenAI API",
+      "model": "gpt-5.6-luna"
+    },
+    "gemini": {
+      "label": "Gemini API",
+      "model": "gemini-2.5-flash"
+    },
+    "anthropic": {
+      "label": "Anthropic API",
+      "model": "claude-sonnet-4-6"
+    }
+  },
+  "voicevox": {
+    "engine": "voicevox",
+    "base_url": "http://127.0.0.1:50021",
+    "engine_path": "tools/voicevox-engine/windows-cpu/run.exe",
+    "speaker_label": "玄野武宏 / ノーマル",
+    "speaker_id": 11,
+    "speed_scale": 1.0,
+    "intonation_scale": 1.0,
+    "pitch_scale": 0.0
+  },
+  "whisper": {
+    "model": "small",
+    "device": "cpu",
+    "compute_type": "int8",
+    "language": "ja",
+    "model_dir": "data/whisper-models",
+    "initial_prompt": "海城祭の来場者が企画、場所、時間、おすすめを質問する日本語の案内会話です。",
+    "hotwords": [
+      "海城祭", "海城中学校", "物理部", "化学部", "生物部", "地学部", "数学部",
+      "1号館", "2号館", "3号館", "4号館", "理科館", "アリーナ", "講堂", "前庭",
+      "企画", "展示", "タイムテーブル", "パンフレット", "Noroshi"
+    ],
+    "vad_threshold": 0.35,
+    "min_speech_duration_ms": 120,
+    "min_silence_duration_ms": 300,
+    "speech_pad_ms": 160
+  },
+  "smart_turn": {
+    "model_dir": "data/smart-turn",
+    "threshold": 0.5
+  },
+  "exhibition": {
+    "title": "海城祭・案内AI",
+    "knowledge_path": "data/festival/knowledge.json",
+    "additional_knowledge_paths": [
+      "data/festival/website_knowledge.json"
+    ],
+    "session_message_limit": 20,
+    "suggestions": [
+      "今から参加できる企画を教えて",
+      "理科系のおすすめ展示は？",
+      "食べ物はどこで買える？"
+    ]
+  }
+}

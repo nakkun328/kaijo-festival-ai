@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#071727" />
+    <meta name="description" content="文化祭案内AI展示サーバーの管理画面" />
+    <title>文化祭案内AI・管理画面</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/admin.css" />
+  </head>
+  <body class="admin-body">
+    <main class="admin-stage">
+      <header class="admin-header">
+        <div>
+          <p class="eyebrow">PERSONA LAB / CONTROL</p>
+          <h1>展示システム管理</h1>
+        </div>
+        <div class="admin-header-actions">
+          <span class="status ready" id="admin-connection"><i></i><span>監視中</span></span>
+          <a class="admin-link" href="/">会話画面へ戻る</a>
+        </div>
+      </header>
+
+      <section class="load-grid" aria-label="サーバー負荷">
+        <article class="load-card"><span>PC CPU</span><b id="cpu-value">--</b><div class="meter"><i id="cpu-meter"></i></div></article>
+        <article class="load-card"><span>PCメモリ</span><b id="memory-value">--</b><small id="memory-detail">--</small><div class="meter"><i id="memory-meter"></i></div></article>
+        <article class="load-card gpu-card"><span>GPU使用率</span><b id="gpu-value">--</b><small id="gpu-name">確認中</small><div class="meter"><i id="gpu-meter"></i></div></article>
+        <article class="load-card gpu-card"><span>GPU温度</span><b id="gpu-temperature">--</b><small id="gpu-temperature-state">確認中</small><div class="meter"><i id="gpu-temperature-meter"></i></div></article>
+        <article class="load-card gpu-card"><span>VRAM使用量</span><b id="vram-value">--</b><small id="vram-detail">--</small><div class="meter"><i id="vram-meter"></i></div></article>
+        <article class="load-card"><span>サーバー使用量</span><b id="process-memory">--</b><small id="process-cpu">CPU --</small></article>
+        <article class="load-card"><span>連続稼働</span><b id="uptime-value">--</b><small id="request-count">リクエスト --</small></article>
+      </section>
+
+      <section class="admin-layout">
+        <article class="admin-panel">
+          <div class="panel-title"><div><p class="process-kicker">SERVICES</p><h2>構成機能の状態</h2></div><span id="service-summary">確認中</span></div>
+          <div class="service-list" id="service-list"></div>
+        </article>
+
+        <article class="admin-panel operation-panel">
+          <div class="panel-title"><div><p class="process-kicker">PERFORMANCE</p><h2>工程ごとの処理時間</h2></div><span>直近100回</span></div>
+          <div class="operation-table-wrap">
+            <table class="operation-table">
+              <thead><tr><th>工程</th><th>状態</th><th>回数</th><th>直近</th><th>平均</th><th>最大</th><th>失敗</th></tr></thead>
+              <tbody id="operation-rows"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <p class="admin-note">待機中は約5秒、会話中は約1秒ごとに更新します。会話内容や録音データは表示・保存しません。</p>
+    </main>
+    <script src="/admin.js"></script>
+  </body>
+</html>

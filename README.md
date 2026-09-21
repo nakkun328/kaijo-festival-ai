@@ -1,0 +1,172 @@
+# Persona Partner
+
+「一人の人格としてそこにいる」感覚を重視した、個人用のテキスト対話AIプロトタイプです。
+
+現在の構成は次のとおりです。
+
+```text
+ユーザー入力
+  -> 入力チェック
+  -> 関連する長期記憶を検索
+  -> 人格コア + 状態 + 記憶を毎ターン注入
+  -> Anthropic API
+  -> 応答表示
+  -> 会話をSQLiteへ保存
+  -> 一定間隔で会話を要約し、長期記憶へ保存
+```
+
+## セットアップ
+
+Python 3.11以降を推奨します。
+
+```powershell
+py -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+$env:ANTHROPIC_API_KEY="your-api-key"
+python persona_chat_prototype.py
+```
+
+名前や口調は [`config/persona.json`](config/persona.json) で変更できます。APIモデルは環境変数 `PERSONA_MODEL` で上書きできます。
+
+```powershell
+$env:PERSONA_MODEL="claude-sonnet-4-6"
+```
+
+## CLIコマンド
+
+- `/help`: コマンド一覧
+- `/state`: 現在の人格状態を表示
+- `/mood 元気`: 気分を変更
+- `/interest 電子工作`: 関心事を変更
+- `/memories`: 最近の長期記憶を表示
+- `/remember 内容`: 明示的に長期記憶へ保存
+- `/forget ID`: 指定した長期記憶を削除
+- `/quit`: 会話を終了
+
+会話と長期記憶は初回実行時に `data/memory.db` へ保存されます。このファイルはGit管理対象外です。
+
+## 文化祭展示モード
+
+来場者向けのローカルWeb画面を起動できます。
+
+```powershell
+.\start_exhibition.ps1
+```
+
+APIキーを安全入力すると、依存関係の確認、ブラウザ表示、サーバー起動をまとめて行います。手動で起動する場合は、同じPowerShell内で環境変数を設定してから実行します。
+
+```powershell
+$env:ANTHROPIC_API_KEY="your-api-key"
+python exhibition_server.py
+```
+
+ブラウザで `http://127.0.0.1:8765` を開きます。展示モードの会話履歴はプロセス内だけに保持され、SQLiteや長期記憶には保存されません。「会話をリセット」で次の来場者へ安全に交代できます。
+
+### 文化祭の公式情報案内
+
+展示モードはパンフレット由来の `data/festival/knowledge.json` と、公式サイト由来の `data/festival/website_knowledge.json` を読み込み、来場者の質問に関連する企画だけを検索してAIへ渡します。企画名・場所・日時は検索結果だけを根拠にし、回答には「パンフレットp.XX」または「海城祭公式サイト」という出典を添えるよう制約しています。公式資料同士に相違がある場合は勝手に統合せず、現地スタッフへの確認を案内します。
+
+パンフレットを更新した場合は、OllamaのVision対応モデルを起動して再抽出できます。
+
+```powershell
+python scripts/extract_festival_knowledge.py tmp/pdfs/festival-pamphlet.pdf
+```
+
+抽出結果はAIによる下書きです。本番前に `data/festival/knowledge.json` の日時・教室番号と原本ページを照合してください。検索動作は認証後の `/api/guide/search?q=物理部` でも確認できます。
+
+公式サイトのトップページと企画情報を更新する場合は、ネット接続中に次を実行します。取得結果はローカルへ保存されるため、更新後はオフラインでも検索できます。
+
+```powershell
+& ".venv\Scripts\python.exe" scripts\import_kaijofes_website.py
+```
+
+`public_tunnel.py` は起動時にこの更新を自動実行します。取得に失敗した場合は公開を止めず、最後に正常保存されたデータを使用します。
+
+### AI接続の選択
+
+画面右上から次の4方式を切り替えられます。切り替えると、それまでの会話は消去されます。
+
+| 接続 | 必要な準備 | 既定モデル |
+| --- | --- | --- |
+| ローカルAI | Ollamaを起動 | `gemma4:12b` |
+| OpenAI API | `OPENAI_API_KEY` | `gpt-5.6-luna` |
+| Gemini API | `GEMINI_API_KEY` | `gemini-2.5-flash` |
+| Anthropic API | `ANTHROPIC_API_KEY` | `claude-sonnet-4-6` |
+
+接続先は `PERSONA_PROVIDER`、モデル名は `OLLAMA_MODEL`、`OPENAI_MODEL`、`GEMINI_MODEL`、`ANTHROPIC_MODEL` で上書きできます。
+
+ローカルAIを使う場合、APIキーは不要です。Ollamaをインストールして起動後、次を一度実行します。
+
+```powershell
+ollama pull gemma4:12b
+```
+
+## 招待リンクでインターネット公開
+
+`cloudflared`を導入後、次を実行します。
+
+```powershell
+python public_tunnel.py
+```
+
+表示される `/invite/…` 付きURLだけを共有してください。最初のアクセスで招待Cookieを設定し、URLからトークンを取り除きます。トークンなしのアクセスは404になり、同一アクセス元からの会話送信は1分12回に制限されます。プログラムを終了するとURLと招待トークンは無効になります。
+
+これは「リンクを持つ人」の確認であり本人確認ではありません。リンクをSNSなどへ掲載せず、参加者間だけで共有してください。
+
+起動時には来場者用の招待リンクとは別に、運営者専用の管理画面リンクも発行されます。管理リンクからは、PC全体と展示サーバーのCPU・メモリ使用量、NVIDIA GPU使用率・温度・VRAM使用量、連続稼働時間、各エンジンの状態、工程ごとの実行回数・失敗数・直近／平均／最大所要時間を確認できます。更新間隔は待機中が約5秒、音声対話中が約1秒です。管理リンクは来場者へ共有しないでください。
+
+## 音声会話
+
+ChromeまたはEdgeで展示画面を開き、「対話スタート（自動）」を一度押します。初回はブラウザのマイク許可が必要です。約2.4秒ごとに音声片を確定し、次の録音をすぐ開始しながら `faster-whisper` で一度だけ文字起こしします。明確な質問・依頼・途中語尾は即時判定し、曖昧な発言だけ蓄積した発言と会話履歴をローカルAIが読みます。意味として完結していれば自動送信、途中なら録音を続けます。無音の有無を送信条件にしないため、周囲が騒がしい会場でも文脈を基準に動作します。`Pipecat Smart Turn v3.2` は文脈判定を利用できない場合のフォールバックです。AIの読み上げ終了後は自動で次の発話待ちに戻り、「ストップ」でマイク・認識・読み上げを停止します。対話モードを開始していない時は従来どおり文字入力できます。
+
+サーバー起動時にVOICEVOX、Whisper、Smart Turn、Ollamaを自動ウォームアップするため、最初の来場者だけ待ち時間が大きくなる問題を抑えます。Ollamaのモデル保持時間は24時間です。ウォームアップ結果は管理画面用の状態APIにも表示されます。
+
+音声は認識処理中だけ一時ファイルにし、完了後すぐ削除します。モデルは初回のみ `data/whisper-models` にダウンロードされます。既定値は展示中の安定性を優先した `small / CPU / int8` です。次の環境変数で変更できます。
+
+```powershell
+$env:WHISPER_MODEL="small"
+$env:WHISPER_DEVICE="cpu"
+$env:WHISPER_COMPUTE_TYPE="int8"
+```
+
+読み上げには無料のローカル音声生成APIであるVOICEVOX Engineを使います。既定の声は「玄野武宏・ノーマル」です。返答を句点だけでなく読点や一定文字数でも短く区切り、最初の句が合成できたら即時再生します。再生用キューと合成用キューを分離しているため、現在の句を再生している間に次の句を先行生成し、句間の待ち時間を隠します。生成失敗時にブラウザ音声へ無言で切り替えず、画面にエラーを表示します。話者、速度、抑揚、Engineの場所は `config/persona.json` の `voicevox` で変更できます。利用時は画面に `VOICEVOX:玄野武宏` とクレジットを表示します。
+
+Ollamaの回答は `/api/chat-stream` からNDJSONで逐次配信します。回答全文を待たず、最初の十分な長さの句または句読点が届いた時点でVOICEVOXへ渡すため、後続の回答生成・音声合成・再生が並行して進みます。Ollama以外の接続先は、ストリーミング未対応の場合も同じAPIから完成文を1回で返します。
+
+会話画面の処理フローには、直近の「聞く・文字起こし・区切り判定・考える・音声生成・話す」の所要時間が表示されます。サーバー処理の値はサーバー側の実測、聞く／話すの値はブラウザ側の実測です。
+
+アバターを再び表示する場合は、生成音声の再生波形をWeb Audio APIで解析し、実際の音量に合わせて口の開閉量を変えられます。音声生成APIを利用できずブラウザ音声へ切り替わった場合は、簡易的な口パクへ自動で切り替わります。
+
+## 本番キオスクと自動起動
+
+`start-kiosk.cmd`をダブルクリックすると、ローカル展示サーバーとVOICEVOXを起動し、Microsoft EdgeまたはGoogle Chromeを専用プロファイルの全画面キオスクで開きます。ブラウザーが予期せず終了した場合は2秒後に自動復旧します。終了するときは`stop-kiosk.cmd`を実行してください。
+
+Windowsログイン時の自動起動を登録する場合は、次を一度実行します。
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\install_kiosk_autostart.ps1
+```
+
+解除は次のコマンドです。
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\uninstall_kiosk_autostart.ps1
+```
+
+本番当日はOllamaが起動し、画面右上が「会話できます」になっていることを確認してください。キオスク表示は`127.0.0.1`を使うため、来場者用画面はインターネット接続が切れても動作します。外部AIや公開リンクを利用する場合だけ会場ネットワークが必要です。
+
+## テスト
+
+```powershell
+python -m unittest discover -s tests -v
+```
+
+API呼び出しを含まないため、APIキーなしで実行できます。
+
+## 設計上の意図
+
+- 人格プロンプトは毎ターン再構築し、気分・関心・関係性・関連記憶を注入します。
+- 長期記憶はまずローカルSQLiteで完結させています。外部ベクトルDBを導入する前に、保存粒度と呼び出し品質を検証できます。
+- 検索は日本語でも依存関係なしで動く文字n-gram方式です。規模が大きくなったら埋め込み検索へ差し替えられます。
+- 会話の生ログと要約済みの長期記憶を分けています。

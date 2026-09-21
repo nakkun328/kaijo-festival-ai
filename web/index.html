@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#071727" />
+    <meta name="description" content="文化祭展示用の人格対話AIプロトタイプ" />
+    <title>文化祭案内AI・対話展示</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="stage">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">PERSONA LAB / LIVE</p>
+          <h1 id="title">文化祭案内AI・対話展示</h1>
+        </div>
+        <div class="top-actions">
+          <time class="current-datetime" id="current-datetime">----/--/--（-）--:--:--</time>
+          <label class="provider-picker">
+            <span>AI</span>
+            <select id="provider" aria-label="使用するAI"></select>
+          </label>
+          <span class="status" id="status"><i></i><span>接続確認中</span></span>
+          <button class="reset" id="reset" type="button">会話をリセット</button>
+        </div>
+      </header>
+
+      <section class="process-monitor" aria-labelledby="process-title">
+        <div class="process-heading">
+          <div>
+            <p class="process-kicker">LIVE PROCESS</p>
+            <h2 id="process-title">AIはいま何をしている？</h2>
+          </div>
+          <p class="process-now" id="process-now" role="status" aria-live="polite">
+            <span class="process-now-dot" aria-hidden="true"></span>
+            <span><b id="process-now-label">待機中</b><small id="process-now-detail">対話スタートを待っています</small></span>
+          </p>
+        </div>
+        <ol class="process-flow" id="process-flow" aria-label="音声対話の処理工程">
+          <li class="process-step" data-stage="listening">
+            <span class="step-number">01</span><span class="step-copy"><b>聞く</b><small>マイク入力</small></span><span class="step-duration" data-duration="listening">--</span>
+          </li>
+          <li class="process-step" data-stage="transcribing">
+            <span class="step-number">02</span><span class="step-copy"><b>文字起こし</b><small>faster-whisper</small></span><span class="step-duration" data-duration="transcribing">--</span>
+          </li>
+          <li class="process-step" data-stage="judging">
+            <span class="step-number">03</span><span class="step-copy"><b>区切り判定</b><small>会話文脈AI</small></span><span class="step-duration" data-duration="judging">--</span>
+          </li>
+          <li class="process-step" data-stage="thinking">
+            <span class="step-number">04</span><span class="step-copy"><b>考える</b><small>対話AI</small></span><span class="step-duration" data-duration="thinking">--</span>
+          </li>
+          <li class="process-step" data-stage="synthesizing">
+            <span class="step-number">05</span><span class="step-copy"><b>音声生成</b><small id="voice-engine-name">音声生成API</small></span><span class="step-duration" data-duration="synthesizing">--</span>
+          </li>
+          <li class="process-step" data-stage="speaking">
+            <span class="step-number">06</span><span class="step-copy"><b>話す</b><small>スピーカー出力</small></span><span class="step-duration" data-duration="speaking">--</span>
+          </li>
+        </ol>
+      </section>
+
+      <section class="chat-shell" aria-label="AIとの会話">
+        <div class="conversation">
+          <div class="messages" id="messages" aria-live="polite">
+            <article class="message ai">
+              <span class="speaker">リク</span>
+              <p>よっ、海城祭へようこそ！ 企画の場所や時間、今から行ける展示、おすすめまで俺に聞いてくれ！</p>
+            </article>
+          </div>
+
+          <div class="suggestions" id="suggestions" aria-label="話題の例"></div>
+
+          <div class="voice-tools">
+            <button id="speaker-toggle" class="speaker-toggle" type="button" aria-pressed="true">
+              <span aria-hidden="true">◉</span> 読み上げ ON
+            </button>
+            <div class="conversation-controls" aria-label="音声対話の操作">
+              <button id="conversation-start" class="conversation-start" type="button">対話スタート（自動）</button>
+              <button id="conversation-stop" class="conversation-stop" type="button" disabled>ストップ</button>
+            </div>
+            <span id="voice-state">対話スタートを押してください</span>
+          </div>
+
+          <div class="live-transcript" id="live-transcript" aria-live="polite" aria-atomic="true">
+            <span class="live-transcript-label"><i aria-hidden="true"></i> LIVE文字起こし</span>
+            <p id="live-transcript-text">マイクで話すと、ここに認識中の内容が表示されます</p>
+            <small id="live-transcript-hint">話し終わりを検出すると自動で送信します</small>
+          </div>
+
+          <form class="composer" id="composer">
+            <label class="sr-only" for="message">話しかける</label>
+            <input id="message" name="message" maxlength="12000" autocomplete="off" placeholder="話しかけてみよう" />
+            <button type="submit" aria-label="送信">
+              <span>送る</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 14-7-4.2 14-3.1-5.7L5 12Zm6.7 1.3L19 5" /></svg>
+            </button>
+          </form>
+          <p class="privacy">「対話スタート（自動）」を一度押したら、ストップするまで声だけで会話できます。発言が意味として完結したかを会話の文脈から判断して自動送信し、AIの返答後は次の発言を自動で待ちます。対話を開始していない時は文字入力も使えます。録音は認識後すぐ削除します。音声：VOICEVOX:玄野武宏</p>
+        </div>
+      </section>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>

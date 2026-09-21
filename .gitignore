@@ -1,0 +1,20 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+data/*.db
+data/*.db-*
+data/whisper-models/
+data/smart-turn/
+data/.public-tunnel-status.json
+tools/*.exe
+tools/voicevox-engine/
+tools/voicevox_engine-*.7z.*
+
+# Local engines, downloaded models, logs and credentials
+tools/
+tmp/
+.env.*
+*.log
+data/aivisspeech-appdata/
+data/festival/knowledge.raw.json
