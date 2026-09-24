@@ -4,3 +4,4 @@ faster-whisper>=1.1.0,<2
 truststore>=0.10.0,<1
 transformers>=5.0.0,<6
 psutil>=6.0.0,<8
+ddgs>=9.0.0,<10

@@ -1,8 +1,9 @@
 {
   "name": "リク",
   "pronoun": "俺",
-  "user_nickname": "お前",
-  "mood": "元気で前向き",
+  "user_nickname": "あなた（必要なときだけ呼びかける）",
+  "mood": "親しみやすく、落ち着いて好奇心がある",
+  "mode": "daily",
   "current_interest": "ユーザーが今取り組んでいること",
   "relationship_depth": 1,
   "model": "claude-sonnet-4-6",
@@ -44,15 +45,13 @@
   },
   "whisper": {
     "model": "small",
-    "device": "cpu",
-    "compute_type": "int8",
+    "device": "cuda",
+    "compute_type": "float16",
     "language": "ja",
     "model_dir": "data/whisper-models",
-    "initial_prompt": "海城祭の来場者が企画、場所、時間、おすすめを質問する日本語の案内会話です。",
+    "initial_prompt": "日常の雑談、相談、アイデアの壁打ち、天気について話す自然な日本語の会話です。",
     "hotwords": [
-      "海城祭", "海城中学校", "物理部", "化学部", "生物部", "地学部", "数学部",
-      "1号館", "2号館", "3号館", "4号館", "理科館", "アリーナ", "講堂", "前庭",
-      "企画", "展示", "タイムテーブル", "パンフレット", "Noroshi"
+      "リク", "アイデア", "壁打ち", "天気"
     ],
     "vad_threshold": 0.35,
     "min_speech_duration_ms": 120,
@@ -64,16 +63,16 @@
     "threshold": 0.5
   },
   "exhibition": {
-    "title": "海城祭・案内AI",
+    "title": "リク・日常会話AI",
     "knowledge_path": "data/festival/knowledge.json",
     "additional_knowledge_paths": [
       "data/festival/website_knowledge.json"
     ],
     "session_message_limit": 20,
     "suggestions": [
-      "今から参加できる企画を教えて",
-      "理科系のおすすめ展示は？",
-      "食べ物はどこで買える？"
+      "ちょっと話そう",
+      "考えていることを整理したい",
+      "アイデアの壁打ちをしよう"
     ]
   }
 }

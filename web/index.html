@@ -4,8 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#071727" />
-    <meta name="description" content="文化祭展示用の人格対話AIプロトタイプ" />
-    <title>文化祭案内AI・対話展示</title>
+    <meta name="description" content="声と文字で話せる日常会話AI" />
+    <title>リク・日常会話AI</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
@@ -13,7 +13,7 @@
       <header class="topbar">
         <div>
           <p class="eyebrow">PERSONA LAB / LIVE</p>
-          <h1 id="title">文化祭案内AI・対話展示</h1>
+          <h1 id="title">リク・日常会話AI</h1>
         </div>
         <div class="top-actions">
           <time class="current-datetime" id="current-datetime">----/--/--（-）--:--:--</time>
@@ -60,15 +60,111 @@
       </section>
 
       <section class="chat-shell" aria-label="AIとの会話">
+        <aside class="identity" data-state="idle" data-emotion="neutral" aria-label="リクのアバター">
+          <div class="pulse pulse-one" aria-hidden="true"></div>
+          <div class="pulse pulse-two" aria-hidden="true"></div>
+          <div class="avatar-stage">
+            <div class="avatar-parallax">
+              <div class="avatar" role="img" aria-label="青い差し色の服とヘッドセットを着けたリク">
+                <img id="avatar-image" src="/assets/riku-avatar-v1.webp" alt="" draggable="false" />
+                <img class="avatar-expression" data-expression="excited" src="/assets/riku-expression-excited-v1.webp" alt="" aria-hidden="true" draggable="false" />
+                <img class="avatar-expression" data-expression="thinking" src="/assets/riku-expression-thinking-v1.webp" alt="" aria-hidden="true" draggable="false" />
+                <img class="avatar-expression" data-expression="surprised" src="/assets/riku-expression-surprised-v1.webp" alt="" aria-hidden="true" draggable="false" />
+                <img class="avatar-expression" data-expression="concerned" src="/assets/riku-expression-concerned-v1.webp" alt="" aria-hidden="true" draggable="false" />
+                <img class="avatar-blink" src="/assets/riku-avatar-blink-v1.webp" alt="" aria-hidden="true" draggable="false" />
+                <img class="avatar-mouth-closed" src="/assets/riku-avatar-mouth-closed-v2.webp" alt="" aria-hidden="true" draggable="false" />
+                <span id="avatar-letter" class="avatar-fallback" aria-hidden="true">リ</span>
+              </div>
+            </div>
+          </div>
+          <div class="avatar-state" aria-live="polite">
+            <b id="avatar-state-label">STANDBY</b>
+            <span class="voice-bars" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+            <span id="emotion-label" class="emotion-label">いつも通り</span>
+          </div>
+          <p><b id="persona-name">リク</b><span>DAILY AI PARTNER</span></p>
+        </aside>
         <div class="conversation">
           <div class="messages" id="messages" aria-live="polite">
             <article class="message ai">
               <span class="speaker">リク</span>
-              <p>よっ、海城祭へようこそ！ 企画の場所や時間、今から行ける展示、おすすめまで俺に聞いてくれ！</p>
+              <p>こんにちは、リクです。気軽な雑談でも、まだまとまっていない考えでも聞かせて。今日は何を話そう？</p>
             </article>
           </div>
 
           <div class="suggestions" id="suggestions" aria-label="話題の例"></div>
+          <section id="memory-proposal" class="proposal-panel" aria-label="記憶の提案" hidden>
+            <strong>これ、覚えておく？</strong>
+            <textarea id="memory-proposal-content" maxlength="2000" rows="2" aria-label="保存する前に内容を確認・編集"></textarea>
+            <div>
+              <button id="memory-proposal-save" type="button">確認して保存</button>
+              <button id="memory-proposal-dismiss" type="button">今は覚えない</button>
+            </div>
+            <p id="memory-proposal-status" role="status"></p>
+          </section>
+          <details class="memory-panel account-panel">
+            <summary>アカウント <span id="account-label">確認中</span></summary>
+            <p id="account-description">ログインすると、Macやスマートフォンから同じ記憶と相談テーマを使えます。</p>
+            <form id="account-form">
+              <label for="account-username">ユーザー名</label>
+              <input id="account-username" name="username" autocomplete="username" minlength="3" maxlength="32" pattern="[A-Za-z0-9_-]+" required />
+              <label for="account-password">パスワード（12文字以上）</label>
+              <input id="account-password" name="password" type="password" autocomplete="current-password" minlength="12" maxlength="128" required />
+              <label class="account-confirm"><input id="account-migrate-confirm" type="checkbox" /> このブラウザの履歴・記憶・テーマを新しいアカウントに移すことを確認しました</label>
+              <button id="account-login" type="submit">ログイン</button>
+              <button id="account-register" type="button">新規登録</button>
+              <button id="account-recovery-toggle" type="button">パスワードを忘れた</button>
+              <div id="account-recovery-fields" hidden>
+                <label for="account-recovery-code">保存した復旧コード</label>
+                <input id="account-recovery-code" autocomplete="off" maxlength="43" />
+                <button id="account-recover" type="button">復旧コードでパスワード再設定</button>
+              </div>
+            </form>
+            <div id="account-recovery-result" hidden>
+              <p>この復旧コードは一度だけ表示されます。安全な場所に保存してください。パスワードを忘れた時に必要です。</p>
+              <code id="account-new-recovery-code"></code>
+              <button id="account-recovery-continue" type="button">保存したので続ける</button>
+            </div>
+            <div id="account-signed-in" hidden>
+              <button id="account-migrate" type="button">このブラウザのデータをアカウントに移す</button>
+              <label for="account-reissue-password">復旧コードを再発行する時のパスワード</label>
+              <input id="account-reissue-password" type="password" autocomplete="current-password" />
+              <button id="account-reissue" type="button">復旧コードを再発行</button>
+              <button id="account-logout" type="button">ログアウト</button>
+            </div>
+            <p id="account-status" role="status"></p>
+          </details>
+          <details class="memory-panel">
+            <summary>覚えていること</summary>
+            <p>「私はギターが好き。覚えておいて」と話して保存できます。「ギターのことを忘れて」で削除できます。曖昧なときは確認します。好みや続けている活動は、AIから保存を提案する場合もありますが、確認して保存を押すまで記憶しません。未ログインの場合はブラウザごとに保存され、Cookieを削除するとアクセスできなくなります。ログインすると端末間で共有できます。検索時は検索語、天気の確認時は地名を外部サービスへ送ります。</p>
+            <form id="memory-form">
+              <label for="memory-content">覚えてほしいこと</label>
+              <input id="memory-content" maxlength="2000" required placeholder="例：ギターの練習をしている" />
+              <button type="submit">記憶を追加</button>
+            </form>
+            <p id="memory-status" role="status"></p>
+            <div id="memory-list"></div>
+          </details>
+
+          <details class="memory-panel theme-panel">
+            <summary>相談テーマ <span id="active-theme-label"></span></summary>
+            <p>新しい相談は先にテーマ名を入れて「このテーマで相談を始める」を押すと、以後の会話がそのテーマに紐づきます。話した後に「会話から下書きを作る」で目的・選択肢・未解決点を整理し、確認・修正して保存できます。内容は自動保存されません。</p>
+            <label for="theme-select">保存済みのテーマ</label>
+            <select id="theme-select"><option value="">新しいテーマ</option></select>
+            <form id="theme-form">
+              <label for="theme-title">テーマ名</label><input id="theme-title" maxlength="120" required placeholder="例：進路を考える" />
+              <label for="theme-goal">目的</label><textarea id="theme-goal" maxlength="2000" rows="2"></textarea>
+              <label for="theme-options">選択肢</label><textarea id="theme-options" maxlength="2000" rows="2"></textarea>
+              <label for="theme-open">未解決点</label><textarea id="theme-open" maxlength="2000" rows="2"></textarea>
+              <label for="theme-decisions">決定事項</label><textarea id="theme-decisions" maxlength="2000" rows="2"></textarea>
+              <button id="theme-save" type="submit">このテーマで相談を始める</button>
+              <button id="theme-draft" type="button">会話から下書きを作る</button>
+              <button id="theme-activate" type="button">続きを話す</button>
+              <button id="theme-clear" type="button">テーマを外す</button>
+              <button id="theme-delete" type="button">削除</button>
+            </form>
+            <p id="theme-status" role="status"></p>
+          </details>
 
           <div class="voice-tools">
             <button id="speaker-toggle" class="speaker-toggle" type="button" aria-pressed="true">

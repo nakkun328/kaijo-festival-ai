@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 from exhibition_server import (
     ExhibitionApp,
     format_ai_current_time,
+    parse_model_json_object,
     parse_animation_directive,
     render_guide_card_svg,
 )
@@ -34,6 +35,12 @@ CONFIG = {
 
 
 class ExhibitionAppTests(unittest.TestCase):
+    def test_model_json_accepts_only_trailing_commas_outside_strings(self):
+        parsed = parse_model_json_object('```json\n{"title":"進路,}","options":["大学", "就職",],}\n```')
+        self.assertEqual(parsed, {'title':'進路,}', 'options':['大学', '就職']})
+        with self.assertRaises(ValueError):
+            parse_model_json_object('{"title": unquoted}')
+
     def test_animation_directive_is_removed_and_validated(self):
         answer, animation = parse_animation_directive(
             "[[emotion:excited|gesture:cheer|intensity:0.9]]\nよし、やろう！"

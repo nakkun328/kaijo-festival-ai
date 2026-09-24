@@ -65,6 +65,22 @@ class WhisperTranscriberTests(unittest.TestCase):
         self.assertEqual(seen_kwargs["vad_parameters"]["threshold"], 0.3)
         self.assertEqual(seen_kwargs["vad_parameters"]["speech_pad_ms"], 180)
 
+    def test_cuda_runtime_failure_falls_back_to_cpu_once(self):
+        transcriber = FasterWhisperTranscriber({'device':'cuda', 'compute_type':'float16'})
+        def broken_segments():
+            raise RuntimeError('Library cublas64_12.dll is not found')
+            yield
+        gpu_model = SimpleNamespace(transcribe=lambda *_args, **_kwargs: (broken_segments(), None))
+        cpu_model = SimpleNamespace(transcribe=lambda *_args, **_kwargs:
+                                    (iter([SimpleNamespace(text='こんにちは。')]), None))
+        def model_for_device():
+            return gpu_model if transcriber.device == 'cuda' else cpu_model
+        with patch.object(transcriber, 'status', return_value=SimpleNamespace(ready=True, reason='')), \
+             patch.object(transcriber, '_load_model', side_effect=model_for_device):
+            self.assertEqual(transcriber.transcribe(b'audio', 'audio/webm'), 'こんにちは。')
+        self.assertEqual(transcriber.device, 'cpu')
+        self.assertEqual(transcriber.compute_type, 'int8')
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -62,6 +62,7 @@ class FasterWhisperTranscriber:
         }
         self._model: Any | None = None
         self._lock = threading.Lock()
+        self._cuda_dll_handle: Any | None = None
 
     def status(self) -> TranscriberStatus:
         try:
@@ -79,6 +80,13 @@ class FasterWhisperTranscriber:
     def _load_model(self) -> Any:
         if self._model is not None:
             return self._model
+        if self.device == 'cuda' and os.name == 'nt' and self._cuda_dll_handle is None:
+            local_app_data = os.environ.get('LOCALAPPDATA')
+            if local_app_data:
+                ollama_cuda = Path(local_app_data) / 'Programs' / 'Ollama' / 'lib' / 'ollama' / 'cuda_v12'
+                if ollama_cuda.is_dir():
+                    os.environ['PATH'] = str(ollama_cuda) + os.pathsep + os.environ.get('PATH', '')
+                    self._cuda_dll_handle = os.add_dll_directory(str(ollama_cuda))
         try:
             import truststore
 
@@ -96,6 +104,20 @@ class FasterWhisperTranscriber:
         )
         return self._model
 
+    def _recognize(self, model: Any, temporary_path: str) -> str:
+        segments, _ = model.transcribe(
+            temporary_path,
+            language=self.language,
+            beam_size=1,
+            vad_filter=True,
+            vad_parameters=self.vad_parameters,
+            condition_on_previous_text=False,
+            without_timestamps=True,
+            initial_prompt=self.initial_prompt,
+            hotwords=self.hotwords,
+        )
+        return "".join(segment.text for segment in segments).strip()
+
     def transcribe(self, audio: bytes, content_type: str = "audio/webm") -> str:
         if not audio:
             raise ValueError("録音データが空です。")
@@ -111,19 +133,17 @@ class FasterWhisperTranscriber:
                 temporary.write(audio)
                 temporary_path = temporary.name
             with self._lock:
-                model = self._load_model()
-                segments, _ = model.transcribe(
-                    temporary_path,
-                    language=self.language,
-                    beam_size=1,
-                    vad_filter=True,
-                    vad_parameters=self.vad_parameters,
-                    condition_on_previous_text=False,
-                    without_timestamps=True,
-                    initial_prompt=self.initial_prompt,
-                    hotwords=self.hotwords,
-                )
-                text = "".join(segment.text for segment in segments).strip()
+                try:
+                    text = self._recognize(self._load_model(), temporary_path)
+                except RuntimeError as exc:
+                    gpu_error = any(marker in str(exc).lower() for marker in
+                                    ('cuda', 'cublas', 'cudnn', 'out of memory', 'driver'))
+                    if self.device != 'cuda' or not gpu_error:
+                        raise
+                    self._model = None
+                    self.device = 'cpu'
+                    self.compute_type = 'int8'
+                    text = self._recognize(self._load_model(), temporary_path)
             if not text:
                 raise ValueError("声を認識できませんでした。もう一度、少し大きめの声で話してください。")
             return text

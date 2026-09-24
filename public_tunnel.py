@@ -42,9 +42,11 @@ def main() -> int:
 
     try:
         from scripts.import_kaijofes_website import update_knowledge
+        from persona_chat_prototype import load_config
 
-        record_count = update_knowledge(ROOT / "data" / "festival" / "website_knowledge.json")
-        print(f"海城祭公式サイトの案内情報を更新しました（{record_count}件）。", flush=True)
+        if load_config().get('mode') != 'daily':
+            record_count = update_knowledge(ROOT / "data" / "festival" / "website_knowledge.json")
+            print(f"海城祭公式サイトの案内情報を更新しました（{record_count}件）。", flush=True)
     except Exception as exc:
         print(
             f"公式サイト情報を更新できなかったため、保存済みデータを使います: {exc}",

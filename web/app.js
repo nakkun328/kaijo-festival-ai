@@ -20,6 +20,7 @@ const processDurations = new Map(
   [...document.querySelectorAll("[data-duration]")].map((element) => [element.dataset.duration, element]),
 );
 const avatarImage = document.querySelector("#avatar-image");
+const avatar = document.querySelector(".avatar");
 const avatarStateLabel = document.querySelector("#avatar-state-label");
 const emotionLabel = document.querySelector("#emotion-label");
 const currentDatetime = document.querySelector("#current-datetime");
@@ -478,17 +479,20 @@ function joinedTranscript(existing, addition) {
 function quickTurnDecision(text) {
   const normalized = String(text || "").replace(/\s+/g, "").trim();
   if (!normalized) return false;
-  if (/[。！？!?]$/.test(normalized)) return true;
-  if (new Set(["はい", "いいえ", "うん", "いや", "ありがとう", "お願い", "やめて"]).has(normalized)) return true;
+  if (/[！？!?]$/.test(normalized)) return true;
+  const stem = normalized.replace(/[。！？!?]+$/, "");
+  if (new Set(["はい", "いいえ", "うん", "いや", "ありがとう", "お願い", "やめて",
+               "こんにちは", "おはよう", "こんばんは", "おやすみ"]).has(stem)) return true;
   if ([
     "教えて", "案内して", "どこ", "いつ", "何時", "ある", "ない", "できる",
     "買える", "行ける", "おすすめ", "オススメ", "知りたい", "お願い",
-  ].some((ending) => normalized.endsWith(ending))) return true;
+  ].some((ending) => stem.endsWith(ending))) return true;
   if ([
     "けど", "けれど", "けれども", "から", "ので", "て", "で", "し", "たり",
-    "というか", "えっと", "あの", "その", "それで", "あと", "例えば",
+    "というか", "というより", "言い直すと", "えっと", "あの", "その", "それで", "あと", "例えば",
     "について", "は", "が", "を", "に", "へ", "と", "も", "の",
-  ].some((ending) => normalized.endsWith(ending))) return false;
+  ].some((ending) => stem.endsWith(ending))) return false;
+  if (/[。]$/.test(normalized)) return true;
   return null;
 }
 
@@ -740,6 +744,26 @@ function addMessage(role, text, extraClass = "", guideCards = []) {
   return article;
 }
 
+function addSources(article, evidence) {
+  if (!evidence.sources?.length) return;
+  const references = document.createElement('div');
+  references.className = 'answer-sources';
+  evidence.sources.forEach((source, index) => {
+    try {
+      const url = new URL(source.url);
+      if (!['https:', 'http:'].includes(url.protocol)) return;
+      const link = document.createElement('a');
+      link.href = url.href;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = `[${index + 1}] ${source.title}`;
+      references.append(link, document.createElement('br'));
+    } catch {}
+  });
+  if (evidence.retrievedAt) references.append(document.createTextNode('取得：' + new Date(evidence.retrievedAt).toLocaleString('ja-JP')));
+  article.append(references);
+}
+
 async function api(path, body) {
   const response = await fetch(path, {
     method: body ? "POST" : "GET",
@@ -841,7 +865,10 @@ async function sendMessage(text) {
   let finalEvent = null;
   try {
     await streamChat(text, (event) => {
-      if (event.type === "animation") {
+      if (event.type === 'status') {
+        answerBody.textContent = event.text;
+        setProcessStage('thinking', event.text, '');
+      } else if (event.type === "animation") {
         applyAnimation(event.animation);
       } else if (event.type === "delta") {
         if (!streamedAnswer) {
@@ -859,10 +886,31 @@ async function sendMessage(text) {
       }
     });
     if (!finalEvent) throw new Error("AIの回答が途中で終了しました。");
+    if (finalEvent.memoriesChanged) await Promise.all([loadMemories(), loadMemoryProposal()]);
+    if (finalEvent.proposalResolved) renderMemoryProposal(null);
+    if (finalEvent.memoryProposal) renderMemoryProposal(finalEvent.memoryProposal);
     thinking.classList.remove("thinking");
     answerBody.textContent = finalEvent.answer;
     applyAnimation(finalEvent.animation);
     addGuideCards(thinking, finalEvent.guideCards);
+    if (finalEvent.sources?.length) {
+      const references = document.createElement('div');
+      references.className = 'answer-sources';
+      finalEvent.sources.forEach((source, index) => {
+        try {
+          const url = new URL(source.url);
+          if (!['https:', 'http:'].includes(url.protocol)) return;
+          const link = document.createElement('a');
+          link.href = url.href;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.textContent = `[${index + 1}] ${source.title}`;
+          references.append(link, document.createElement('br'));
+        } catch {}
+      });
+      if (finalEvent.retrievedAt) references.append(document.createTextNode('取得：' + new Date(finalEvent.retrievedAt).toLocaleString('ja-JP')));
+      thinking.append(references);
+    }
     setStepDuration("thinking", finalEvent.timings?.firstToken || finalEvent.timings?.thinking);
     const additionalText = finalEvent.answer.startsWith(streamedAnswer)
       ? finalEvent.answer.slice(streamedAnswer.length)
@@ -882,6 +930,17 @@ async function bootstrap() {
   try {
     const data = await api("/api/bootstrap");
     personaName = data.name;
+    if (data.history?.length) {
+      messages.replaceChildren();
+      for (const item of data.history) {
+        const article = addMessage(item.role === 'assistant' ? 'ai' : 'user', item.content);
+        addSources(article, item);
+      }
+    }
+    await loadMemories();
+    await loadMemoryProposal();
+    await loadThemes();
+    await loadAccount();
     if (data.clock?.timeZone) clockTimeZone = data.clock.timeZone;
     if (data.clock?.serverNow) {
       const serverNow = Date.parse(data.clock.serverNow);
@@ -971,7 +1030,7 @@ reset.addEventListener("click", async () => {
     await api("/api/reset", {});
     messages.replaceChildren();
     resetStepDurations();
-    addMessage("ai", "よし、ここから新しい案内だ。行きたい企画や場所を聞いてくれ！");
+    addMessage("ai", "ここから新しい会話にしよう。今日あったことでも、考えていることでも聞かせて。");
     applyAnimation({ emotion: "happy", gesture: "wave", intensity: 0.72 });
   } catch (error) {
     addMessage("ai", error.message);
@@ -982,10 +1041,251 @@ reset.addEventListener("click", async () => {
 
 if (!recorderSupported) voiceState.textContent = "このブラウザは連続音声対話に対応していません";
 avatarImage?.addEventListener("error", () => avatarImage.classList.add("is-missing"));
+if (identity && avatar && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  const scheduleBlink = () => {
+    window.setTimeout(() => {
+      if (!document.hidden) {
+        avatar.classList.add("is-blinking");
+        window.setTimeout(() => avatar.classList.remove("is-blinking"), 170);
+      }
+      scheduleBlink();
+    }, 2600 + Math.random() * 3500);
+  };
+  scheduleBlink();
+
+  identity.addEventListener("pointermove", (event) => {
+    if (event.pointerType === "touch") return;
+    const bounds = identity.getBoundingClientRect();
+    const x = (event.clientX - bounds.left) / bounds.width - 0.5;
+    const y = (event.clientY - bounds.top) / bounds.height - 0.5;
+    identity.style.setProperty("--look-x", `${(x * 12).toFixed(1)}px`);
+    identity.style.setProperty("--look-y", `${(y * 8).toFixed(1)}px`);
+    identity.style.setProperty("--look-angle", `${(x * 1.3).toFixed(2)}deg`);
+  });
+  identity.addEventListener("pointerleave", () => {
+    identity.style.setProperty("--look-x", "0px");
+    identity.style.setProperty("--look-y", "0px");
+    identity.style.setProperty("--look-angle", "0deg");
+  });
+}
 window.addEventListener("pagehide", () => {
   if (!conversationActive) return;
   const payload = new Blob([JSON.stringify({ active: false })], { type: "application/json" });
   navigator.sendBeacon("/api/conversation-state", payload);
 });
 applyAnimation(currentAnimation);
+let currentMemoryProposal = null;
+function renderMemoryProposal(proposal) {
+  currentMemoryProposal = proposal;
+  const panel = document.querySelector('#memory-proposal');
+  panel.hidden = !proposal;
+  if (proposal) document.querySelector('#memory-proposal-content').value = proposal.content;
+  document.querySelector('#memory-proposal-status').textContent = '';
+}
+async function loadMemoryProposal() {
+  try { renderMemoryProposal((await api('/api/memory-proposals')).proposal); }
+  catch (error) { document.querySelector('#memory-proposal-status').textContent = error.message; }
+}
+async function resolveMemoryProposal(action) {
+  if (!currentMemoryProposal) return;
+  const body = {id:currentMemoryProposal.id, action};
+  if (action === 'save') body.content = document.querySelector('#memory-proposal-content').value;
+  for (const button of document.querySelectorAll('#memory-proposal button')) button.disabled = true;
+  try {
+    const result = await api('/api/memory-proposals', body);
+    renderMemoryProposal(result.proposal);
+    if (result.saved) renderMemories(result.memories);
+    document.querySelector('#memory-status').textContent = result.saved ? '確認した内容を記憶しました。' : 'この提案は保存しませんでした。';
+  } catch (error) { document.querySelector('#memory-proposal-status').textContent = error.message; }
+  finally { for (const button of document.querySelectorAll('#memory-proposal button')) button.disabled = false; }
+}
+document.querySelector('#memory-proposal-save').addEventListener('click', () => resolveMemoryProposal('save'));
+document.querySelector('#memory-proposal-dismiss').addEventListener('click', () => resolveMemoryProposal('dismiss'));
+async function loadMemories() {
+  try { renderMemories((await api('/api/memories')).memories); }
+  catch (error) { document.querySelector('#memory-status').textContent = error.message; }
+}
+
+function renderMemories(items) {
+  const list = document.querySelector('#memory-list');
+  list.replaceChildren();
+  for (const item of items) {
+    const row = document.createElement('div');
+    const field = document.createElement('textarea');
+    field.value = item.content;
+    field.maxLength = 2000;
+    field.setAttribute('aria-label', '保存済みの記憶');
+    const save = document.createElement('button');
+    save.textContent = '変更を保存';
+    const remove = document.createElement('button');
+    remove.textContent = '削除';
+    async function change(payload) {
+      save.disabled = remove.disabled = true;
+      try {
+        renderMemories((await api('/api/memories', payload)).memories);
+        document.querySelector('#memory-status').textContent = payload.action === 'delete' ? '記憶を削除しました。' : '記憶を更新しました。';
+      } catch (error) {
+        document.querySelector('#memory-status').textContent = error.message;
+        save.disabled = remove.disabled = false;
+      }
+    }
+    save.onclick = () => change({id:item.id, content:field.value});
+    remove.onclick = () => { if (confirm('この記憶を削除しますか？')) change({id:item.id, action:'delete'}); };
+    row.append(field, save, remove);
+    list.append(row);
+  }
+  if (!items.length) list.textContent = '保存された記憶はまだありません。';
+}
+document.querySelector('#memory-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const field = document.querySelector('#memory-content');
+  const button = event.target.querySelector('button');
+  button.disabled = true;
+  try {
+    renderMemories((await api('/api/memories', {content:field.value})).memories);
+    field.value = '';
+    document.querySelector('#memory-status').textContent = '記憶を保存しました。';
+  } catch (error) { document.querySelector('#memory-status').textContent = error.message; }
+  finally { button.disabled = false; }
+});
+let savedThemes = [];
+const themeSelect = document.querySelector('#theme-select');
+const themeStatus = document.querySelector('#theme-status');
+const themeFields = {title:'#theme-title', goal:'#theme-goal', options:'#theme-options', open_questions:'#theme-open', decisions:'#theme-decisions'};
+function selectedThemeId() { return Number(themeSelect.value) || null; }
+function fillTheme(theme) {
+  for (const [key, selector] of Object.entries(themeFields)) document.querySelector(selector).value = theme?.[key] || '';
+}
+function renderThemes(data, selectedId = data.selectedId ?? data.activeThemeId) {
+  savedThemes = data.themes;
+  themeSelect.replaceChildren(new Option('新しいテーマ', ''));
+  for (const theme of savedThemes) themeSelect.add(new Option(theme.title, String(theme.id)));
+  themeSelect.value = selectedId && savedThemes.some(item => item.id === selectedId) ? String(selectedId) : '';
+  fillTheme(savedThemes.find(item => item.id === selectedThemeId()));
+  document.querySelector('#theme-save').textContent = selectedThemeId() ? 'テーマを保存' : 'このテーマで相談を始める';
+  const active = savedThemes.find(item => item.id === data.activeThemeId);
+  document.querySelector('#active-theme-label').textContent = active ? `（続き：${active.title}）` : '（選択なし）';
+}
+async function loadThemes() {
+  try { renderThemes(await api('/api/themes')); }
+  catch (error) { themeStatus.textContent = error.message; }
+}
+themeSelect.addEventListener('change', () => {
+  fillTheme(savedThemes.find(item => item.id === selectedThemeId()));
+  document.querySelector('#theme-save').textContent = selectedThemeId() ? 'テーマを保存' : 'このテーマで相談を始める';
+});
+document.querySelector('#theme-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const body = {id:selectedThemeId()};
+  for (const [key, selector] of Object.entries(themeFields)) body[key] = document.querySelector(selector).value;
+  try {
+    renderThemes(await api('/api/themes', body));
+    themeStatus.textContent = 'テーマを保存しました。';
+  } catch (error) { themeStatus.textContent = error.message; }
+});
+document.querySelector('#theme-draft').addEventListener('click', async event => {
+  const button = event.currentTarget;
+  if (Object.values(themeFields).some(selector => document.querySelector(selector).value.trim()) &&
+      !confirm('入力中の内容を会話から作った下書きで置き換えますか？')) return;
+  button.disabled = true;
+  themeStatus.textContent = '会話を整理しています…';
+  try {
+    const result = await api('/api/themes/draft', {id:selectedThemeId()});
+    fillTheme(result.draft);
+    themeStatus.textContent = '下書きを表示しました。内容を確認・修正し、「テーマを保存」で確定してください。';
+  } catch (error) { themeStatus.textContent = error.message; }
+  finally { button.disabled = false; }
+});
+document.querySelector('#theme-activate').addEventListener('click', async () => {
+  if (!selectedThemeId()) { themeStatus.textContent = '先にテーマを保存してください。'; return; }
+  try {
+    renderThemes(await api('/api/themes', {action:'select', id:selectedThemeId()}), selectedThemeId());
+    themeStatus.textContent = '次の会話から、このテーマの続きを話せます。';
+  } catch (error) { themeStatus.textContent = error.message; }
+});
+document.querySelector('#theme-clear').addEventListener('click', async () => {
+  try {
+    const selected = selectedThemeId();
+    renderThemes(await api('/api/themes', {action:'select', id:null}), selected);
+    themeStatus.textContent = '相談テーマを会話から外しました。';
+  } catch (error) { themeStatus.textContent = error.message; }
+});
+document.querySelector('#theme-delete').addEventListener('click', async () => {
+  const id = selectedThemeId();
+  if (!id || !confirm('この相談テーマを削除しますか？')) return;
+  try {
+    renderThemes(await api('/api/themes', {action:'delete', id}));
+    themeStatus.textContent = 'テーマを削除しました。';
+  } catch (error) { themeStatus.textContent = error.message; }
+});
+let accountCounts = {messages:0, memories:0, themes:0};
+const accountStatus = document.querySelector('#account-status');
+function describeCounts(counts) {
+  return `会話${counts.messages}件・記憶${counts.memories}件・相談テーマ${counts.themes}件`;
+}
+async function loadAccount() {
+  try {
+    const data = await api('/api/account');
+    accountCounts = data.localCounts;
+    document.querySelector('#account-label').textContent = data.signedIn ? `（${data.username}）` : '（未ログイン）';
+    document.querySelector('#account-form').hidden = data.signedIn;
+    document.querySelector('#account-signed-in').hidden = !data.signedIn;
+    document.querySelector('#account-migrate').hidden = !Object.values(accountCounts).some(Boolean);
+    document.querySelector('#account-description').textContent = data.signedIn
+      ? `ログイン中です。このブラウザに残る未移行データ：${describeCounts(accountCounts)}。`
+      : `このブラウザの保存データ：${describeCounts(accountCounts)}。新規登録時に確認して移せます。別端末では同じユーザー名でログインしてください。`;
+  } catch (error) { accountStatus.textContent = error.message; }
+}
+async function accountAction(action, body = {}) {
+  try {
+    const result = await api(`/api/account/${action}`, body);
+    if (result.recoveryCode) {
+      document.querySelector('#account-form').hidden = true;
+      document.querySelector('#account-signed-in').hidden = true;
+      document.querySelector('#account-recovery-result').hidden = false;
+      document.querySelector('#account-new-recovery-code').textContent = result.recoveryCode;
+      document.querySelector('.account-panel').open = true;
+      accountStatus.textContent = '復旧コードを保存してから続けてください。';
+    } else if (result.ok) window.location.reload();
+  } catch (error) { accountStatus.textContent = error.message; }
+}
+document.querySelector('#account-form').addEventListener('submit', event => {
+  event.preventDefault();
+  accountAction('login', {
+    username:document.querySelector('#account-username').value,
+    password:document.querySelector('#account-password').value,
+  });
+});
+document.querySelector('#account-register').addEventListener('click', () => {
+  const migrateLocal = document.querySelector('#account-migrate-confirm').checked;
+  if (Object.values(accountCounts).some(Boolean) && !migrateLocal) {
+    accountStatus.textContent = 'このブラウザのデータ移行を確認してください。';
+    return;
+  }
+  accountAction('register', {
+    username:document.querySelector('#account-username').value,
+    password:document.querySelector('#account-password').value,
+    migrateLocal,
+  });
+});
+document.querySelector('#account-logout').addEventListener('click', () => accountAction('logout'));
+document.querySelector('#account-reissue').addEventListener('click', () => accountAction('reissue', {
+  password:document.querySelector('#account-reissue-password').value,
+}));
+document.querySelector('#account-recovery-toggle').addEventListener('click', () => {
+  document.querySelector('#account-recovery-fields').hidden = false;
+  document.querySelector('#account-password').autocomplete = 'new-password';
+  accountStatus.textContent = 'ユーザー名、保存した復旧コード、新しいパスワードを入力してください。';
+});
+document.querySelector('#account-recover').addEventListener('click', () => accountAction('recover', {
+  username:document.querySelector('#account-username').value,
+  password:document.querySelector('#account-password').value,
+  recoveryCode:document.querySelector('#account-recovery-code').value,
+}));
+document.querySelector('#account-recovery-continue').addEventListener('click', () => window.location.reload());
+document.querySelector('#account-migrate').addEventListener('click', () => {
+  if (confirm(`${describeCounts(accountCounts)}をこのアカウントに移します。元のブラウザだけのデータは移行後に削除されます。続けますか？`)) {
+    accountAction('migrate', {confirm:true});
+  }
+});
 bootstrap();

@@ -1,0 +1,52 @@
+const { chromium } = require('C:/Users/Natsuki/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const assert = require('node:assert/strict');
+(async () => {
+  const browser = await chromium.launch({channel:'msedge', headless:true});
+  const context = await browser.newContext({viewport:{width:1280,height:900}});
+  const page = await context.newPage();
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  try {
+    await page.goto('http://127.0.0.1:8765');
+    await page.waitForFunction(() => document.querySelector('#provider').options.length > 0);
+    await page.locator('.memory-panel summary').click();
+    await page.locator('#memory-content').fill('検証用：星を見ることが好き');
+    await page.locator('#memory-form button').click();
+    await page.getByText('記憶を保存しました。', {exact:true}).waitFor();
+    await page.reload();
+    await page.locator('#memory-list textarea').waitFor({state:'attached'});
+    await page.locator('.memory-panel summary').click();
+    assert.equal(await page.locator('#memory-list textarea').inputValue(), '検証用：星を見ることが好き');
+    await page.locator('#memory-list textarea').fill('検証用：月を見ることが好き');
+    await page.getByRole('button',{name:'変更を保存'}).click();
+    await page.getByText('記憶を更新しました。',{exact:true}).waitFor();
+    await page.screenshot({path:'tmp/daily-desktop.png',fullPage:true});
+    const other = await browser.newContext();
+    const second = await other.newPage();
+    await second.goto('http://127.0.0.1:8765');
+    await second.getByText('保存された記憶はまだありません。',{exact:true}).waitFor({state:'attached'});
+    assert.equal(await second.locator('#memory-list textarea').count(),0);
+    await other.close();
+    // Only delete the synthetic memory created by this test.
+    page.on('dialog', dialog => dialog.accept());
+    await page.getByRole('button',{name:'削除',exact:true}).click();
+    await page.getByText('記憶を削除しました。',{exact:true}).waitFor();
+    await page.locator('.memory-panel summary').click();
+    await page.locator('#speaker-toggle').click();
+    await page.locator('#message').fill('気象庁の公式サイトを検索して');
+    await page.locator('#composer button').click();
+    await page.locator('.answer-sources a').first().waitFor({timeout:180000});
+    const sourceUrl = await page.locator('.answer-sources a').first().getAttribute('href');
+    assert.match(sourceUrl, /^https?:/);
+    await page.reload();
+    await page.locator('.answer-sources a').first().waitFor();
+    assert.equal(await page.locator('.answer-sources a').first().getAttribute('href'), sourceUrl);
+    await page.locator('#reset').click();
+    await page.getByText('ここから新しい会話にしよう。今日あったことでも、考えていることでも聞かせて。',{exact:true}).waitFor();
+    await page.setViewportSize({width:390,height:844});
+    await page.screenshot({path:'tmp/daily-mobile.png',fullPage:true});
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth),false);
+    assert.deepEqual(errors, []);
+    console.log('PASS: browser memory CRUD, identity isolation, real search sources survive reload, reset, mobile width, no JS errors');
+  } finally { await browser.close(); }
+})().catch(error => {console.error(error);process.exitCode=1;});

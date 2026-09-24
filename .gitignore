@@ -4,6 +4,7 @@ __pycache__/
 .env
 data/*.db
 data/*.db-*
+data/backups/
 data/whisper-models/
 data/smart-turn/
 data/.public-tunnel-status.json
