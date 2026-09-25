@@ -10,6 +10,8 @@ public sealed class RikuAvatarPresenter : MonoBehaviour
     private RectTransform artRoot;
     private AudioSource voiceSource;
     private uLipSync.uLipSync analyzer;
+    private Material mouthMask;
+    private Material blinkMask;
     private readonly float[] outputSamples = new float[256];
     private float targetOpen;
     private float mouthOpen;
@@ -35,12 +37,14 @@ public sealed class RikuAvatarPresenter : MonoBehaviour
         if (!shader) shader = Shader.Find("Riku/MaskedOverlay");
         if (shader)
         {
-            mouthClosedImage.material = MakeMask(shader,
+            mouthMask = MakeMask(shader,
                 new Vector2(0.50f, 0.79f), new Vector2(0.13f, 0.06f),
                 Vector2.zero, Vector2.zero);
-            blinkImage.material = MakeMask(shader,
+            blinkMask = MakeMask(shader,
                 new Vector2(0.41f, 0.82f), new Vector2(0.08f, 0.035f),
                 new Vector2(0.50f, 0.85f), new Vector2(0.08f, 0.035f));
+            mouthClosedImage.material = mouthMask;
+            blinkImage.material = blinkMask;
         }
         else
         {
@@ -120,7 +124,7 @@ public sealed class RikuAvatarPresenter : MonoBehaviour
     private void OnDestroy()
     {
         if (analyzer) analyzer.onLipSyncUpdate.RemoveListener(OnLipSyncUpdate);
-        if (mouthClosedImage && mouthClosedImage.material) Destroy(mouthClosedImage.material);
-        if (blinkImage && blinkImage.material) Destroy(blinkImage.material);
+        if (mouthMask) Destroy(mouthMask);
+        if (blinkMask) Destroy(blinkMask);
     }
 }
