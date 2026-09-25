@@ -4,7 +4,7 @@
 
 ## PC版（Unity）
 
-[Unityプロジェクトとセットアップ手順](unity/RikuDesktop/README.md)を参照してください。リクの立ち絵、まばたき、VOICEVOX音声に連動するuLipSync口パク、文字入力とマイク入力を用意しています。Unity EditorはこのPCに導入済みですが、ライセンス認証が済むまでEditor上の動作とWindowsビルドは未検証です。
+[Unityプロジェクトとセットアップ手順](unity/RikuDesktop/README.md)を参照してください。リクの立ち絵、まばたき、VOICEVOX音声に連動するuLipSync口パク、文字入力とマイク入力を用意しています。このPCではUnity Personalライセンスを有効化し、Windows版をビルド済みです。
 
 ## LangChainと復元用タグ
 

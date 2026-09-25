@@ -5,7 +5,7 @@ Unity 6.3 LTS用のPCアプリです。既存のPythonサーバーを会話・�
 ## 起動準備
 
 1. Unity HubまたはUnity CLIで Unity 6000.3.13f1（Unity 6.3 LTS）をインストールし、Unityアカウントでサインインしてライセンスを有効化します。
-2. この `unity/RikuDesktop` フォルダーをUnity Editorで開きます。初回はuLipSync 3.1.5を含むパッケージの取得が必要です。
+2. この `unity/RikuDesktop` フォルダーをUnity Editorで開きます。初回はGitHubからコミットを固定したuLipSync 3.1.5を含むパッケージの取得が必要です。
 3. プロジェクトを開くと `Assets/Scenes/Main.unity` が自動生成されます。自動生成されない場合はメニューの `Riku > Create Main Scene` を実行します。
 4. 別のターミナルでプロジェクトルートから `\.venv\Scripts\python.exe exhibition_server.py` を起動し、OllamaとVOICEVOX Engineも起動します。
 5. Unityで `Main` シーンを再生します。送信ボタンで文字会話、マイクボタンで録音開始・停止ができます。
@@ -20,6 +20,6 @@ VOICEVOXのWAVをUnityの `AudioSource` で再生し、同じオブジェクト�
 
 ## 制約
 
-- 現在のPCにはUnity Editorを導入済みですが、Unityライセンスが未認証のためコンパイルとWindowsビルドは未検証です。
+- このPCではUnity Personalライセンスを有効化し、Unity 6000.3.13f1でWindows版をビルド済みです。ビルド成果物はGitHubには含めず、ローカルの `Builds/Windows/RikuDesktop.exe` に置きます。
 - 音声入力はマイクボタンをもう一度押して録音を終える方式です。自動発話区切りはブラウザ版に残っています。
 - 初期API接続先は `http://127.0.0.1:8765` です。ローカルPCのみを想定します。

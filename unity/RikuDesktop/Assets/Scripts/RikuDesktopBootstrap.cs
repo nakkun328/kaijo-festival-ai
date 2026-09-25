@@ -1,3 +1,5 @@
+using System;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -102,6 +104,19 @@ public sealed class RikuDesktopBootstrap : MonoBehaviour
         client.Configure(input, transcript, status, mic.GetComponentInChildren<Text>(), voice);
         send.onClick.AddListener(client.SendTypedMessage);
         mic.onClick.AddListener(client.ToggleMicrophone);
+
+        string[] arguments = Environment.GetCommandLineArgs();
+        int screenshotIndex = Array.IndexOf(arguments, "--riku-screenshot");
+        if (screenshotIndex >= 0 && screenshotIndex + 1 < arguments.Length)
+            StartCoroutine(CaptureScreenshot(arguments[screenshotIndex + 1]));
+    }
+
+    private static IEnumerator CaptureScreenshot(string path)
+    {
+        yield return new WaitForSecondsRealtime(2f);
+        yield return new WaitForEndOfFrame();
+        ScreenCapture.CaptureScreenshot(path);
+        Debug.Log("Riku desktop screenshot requested: " + path);
     }
 
     private static void SetRect(RectTransform rect, Vector2 min, Vector2 max,

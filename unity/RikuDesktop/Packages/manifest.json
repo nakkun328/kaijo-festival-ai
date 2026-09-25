@@ -1,13 +1,12 @@
 {
-  "scopedRegistries": [
-    {
-      "name": "uLipSync",
-      "url": "https://registry.npmjs.com",
-      "scopes": ["com.hecomi"]
-    }
-  ],
   "dependencies": {
-    "com.hecomi.ulipsync": "3.1.5",
-    "com.unity.ugui": "2.0.0"
+    "com.hecomi.ulipsync": "https://github.com/hecomi/uLipSync.git#ece3272762f2148dd8d3e658ec04fcbd79d4d97e",
+    "com.unity.timeline": "1.8.12",
+    "com.unity.ugui": "2.0.0",
+    "com.unity.modules.animation": "1.0.0",
+    "com.unity.modules.audio": "1.0.0",
+    "com.unity.modules.screencapture": "1.0.0",
+    "com.unity.modules.unitywebrequest": "1.0.0",
+    "com.unity.modules.unitywebrequestaudio": "1.0.0"
   }
 }
