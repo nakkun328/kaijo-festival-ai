@@ -1,0 +1,13 @@
+{
+  "scopedRegistries": [
+    {
+      "name": "uLipSync",
+      "url": "https://registry.npmjs.com",
+      "scopes": ["com.hecomi"]
+    }
+  ],
+  "dependencies": {
+    "com.hecomi.ulipsync": "3.1.5",
+    "com.unity.ugui": "2.0.0"
+  }
+}

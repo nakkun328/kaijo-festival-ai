@@ -1,6 +1,6 @@
 import unittest
 from datetime import datetime
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from zoneinfo import ZoneInfo
 
 from exhibition_server import (
@@ -178,6 +178,27 @@ class ExhibitionAppTests(unittest.TestCase):
         self.assertEqual(done["answer"], "こんにちは。案内するよ。")
         self.assertEqual(done["animation"]["emotion"], "happy")
         self.assertEqual(app.history[-1], {"role": "assistant", "content": "こんにちは。案内するよ。"})
+
+    def test_daily_live_question_uses_langchain_agent(self):
+        with patch('exhibition_server.DailyStore'):
+            app = ExhibitionApp({**CONFIG, 'mode':'daily'})
+        provider = MagicMock()
+        provider.status.return_value = ProviderStatus('openai', 'OpenAI', 'test', True)
+        app.providers['openai'] = provider
+        with patch('exhibition_server.LangChainDailyAgent') as agent_class:
+            agent_class.return_value.stream.return_value = iter([
+                {'type':'action', 'tool':'weather'},
+                {'type':'done', 'answer':'東京は晴れです。[1]', 'tool_result':{
+                    'sources':[{'title':'天気','url':'https://example.com/weather'}],
+                    'retrievedAt':'2026-09-24T00:00:00+00:00',
+                }},
+            ])
+            events = list(app.chat_reply_stream('東京の天気を調べて'))
+        done = next(event for event in events if event['type'] == 'done')
+        self.assertEqual(done['answer'], '東京は晴れです。[1]')
+        self.assertEqual(done['sources'][0]['title'], '天気')
+        self.assertEqual(app.history[-1]['content'], '東京は晴れです。[1]')
+        provider.generate_stream.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -1,6 +1,24 @@
 # リク・日常会話AI
 
-声と文字で日常の雑談や考えの壁打ちができるAIです。文化祭版はGitHubの `festival-2026-09-22` タグに保存されています。以下の旧展示手順は文化祭版の資料として残しています。
+声と文字で日常の雑談や考えの壁打ちができるAIです。PC版はUnityのアバターを主役にし、Pythonサーバーが会話・音声・文字起こしを担当します。ブラウザ版も残しています。文化祭版はGitHubの `festival-2026-09-22` タグに保存されています。以下の旧展示手順は文化祭版の資料として残しています。
+
+## PC版（Unity）
+
+[Unityプロジェクトとセットアップ手順](unity/RikuDesktop/README.md)を参照してください。リクの立ち絵、まばたき、VOICEVOX音声に連動するuLipSync口パク、文字入力とマイク入力を用意しています。Unity EditorがこのPCに未導入のため、Editor上の動作とWindowsビルドは未検証です。
+
+## LangChainと復元用タグ
+
+最新情報が必要な日常会話ではLangChainの `create_agent` が天気・Web検索ツールを必要に応じて呼び、結果を見てから回答します。安全のため読み取り専用ツールに限定し、同じ検索の繰り返しと外部ツールの過剰な呼び出しを防ぎます。雑談は低遅延の既存ストリーミング経路を使います。
+
+LangChain・Unity導入前のコードはGitHubの [`pre-langchain-unity-2026-09-24` タグ](https://github.com/nakkun328/kaijo-festival-ai/tree/pre-langchain-unity-2026-09-24)に保存しました。現在の作業を消さずにその版を開くには、別のフォルダーで次のようにします。
+
+```powershell
+git clone https://github.com/nakkun328/kaijo-festival-ai.git riku-before-langchain
+cd riku-before-langchain
+git switch --detach pre-langchain-unity-2026-09-24
+```
+
+このタグはコード・画像・設定の復元点です。`data/daily.db` の会話・記憶データはGitHubに含まれないため、下記のデータバックアップを別途使ってください。
 
 ## 日常版の使い方
 
