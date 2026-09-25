@@ -12,9 +12,10 @@ public sealed class RikuAvatarPresenter : MonoBehaviour
     private uLipSync.uLipSync analyzer;
     private Material mouthMask;
     private Material blinkMask;
-    private readonly float[] outputSamples = new float[256];
+    private readonly float[] clipSamples = new float[1024];
     private float targetOpen;
     private float mouthOpen;
+    private float lipSyncOpen;
     private float lastLipSyncAt;
     private float nextBlinkAt;
     private float blinkEndAt;
@@ -81,23 +82,31 @@ public sealed class RikuAvatarPresenter : MonoBehaviour
 
     public void OnLipSyncUpdate(LipSyncInfo info)
     {
-        targetOpen = Mathf.Clamp01(info.volume * 1.5f);
+        lipSyncOpen = Mathf.Clamp01(info.volume * 1.5f);
         lastLipSyncAt = Time.unscaledTime;
+    }
+
+    private float ClipMouthOpen()
+    {
+        AudioClip clip = voiceSource.clip;
+        if (!clip || !voiceSource.isPlaying) return 0f;
+        int channels = Mathf.Max(1, clip.channels);
+        int offset = Mathf.Clamp(voiceSource.timeSamples, 0,
+            Mathf.Max(0, clip.samples - clipSamples.Length / channels));
+        if (!clip.GetData(clipSamples, offset)) return 0f;
+        float energy = 0f;
+        foreach (float sample in clipSamples) energy += sample * sample;
+        float rms = Mathf.Sqrt(energy / clipSamples.Length);
+        return Mathf.Clamp01((rms - 0.008f) * 14f);
     }
 
     private void Update()
     {
         if (!artRoot || !voiceSource) return;
 
-        if (!voiceSource.isPlaying)
-            targetOpen = 0f;
-        else if (analyzer == null || Time.unscaledTime - lastLipSyncAt > 0.25f)
-        {
-            voiceSource.GetOutputData(outputSamples, 0);
-            float energy = 0f;
-            foreach (float sample in outputSamples) energy += sample * sample;
-            targetOpen = Mathf.Clamp01((Mathf.Sqrt(energy / outputSamples.Length) - 0.012f) * 13f);
-        }
+        float clipOpen = ClipMouthOpen();
+        float analyzedOpen = Time.unscaledTime - lastLipSyncAt < 0.25f ? lipSyncOpen : 0f;
+        targetOpen = voiceSource.isPlaying ? Mathf.Max(analyzedOpen, clipOpen) : 0f;
         mouthOpen = Mathf.Lerp(mouthOpen, targetOpen, 1f - Mathf.Exp(-18f * Time.unscaledDeltaTime));
         SetAlpha(mouthClosedImage, 1f - mouthOpen);
 
