@@ -12,6 +12,8 @@ Unity 6.3 LTS用のPCアプリです。既存のPythonサーバーを会話・�
 
 Unity Editorの `Riku > Build Windows App` でWindows版を `Builds/Windows/RikuDesktop.exe` に出力できます。その後は、プロジェクトルートの `start-desktop-ai.ps1` で会話サーバーとアプリをまとめて起動できます。既にサーバーが起動している場合は、そのサーバーを利用します。
 
+Windowsアプリを通常終了すると、会話に使用するOllamaモデルを停止してGPUメモリを解放します。Ollama本体や会話サーバーは終了しません。ブラウザ版など別の画面も同じモデルを使用中なら、その画面の次の応答ではモデルの再読み込みが発生します。強制終了した場合は終了処理が動かないことがあります。
+
 ## 口パク
 
 VOICEVOXのWAVをUnityの `AudioSource` で再生し、同じオブジェクトのuLipSyncが音声を分析します。アバターは既存のリクの開口・閉口差分を切り替えます。初回セットアップはuLipSync同梱の男性サンプルProfileを `Assets/Resources/RikuLipSyncProfile.asset` にコピーします。VOICEVOXの声に合わせて精度を上げるには、Unity EditorでこのProfileを再調整してください。Profileの取得に失敗した場合も、音量検出による口パクに切り替わります。

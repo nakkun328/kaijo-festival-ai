@@ -18,6 +18,7 @@ public sealed class RikuDesktopClient : MonoBehaviour
     private AudioClip recording;
     private float recordingStartedAt;
     private bool busy;
+    private string ollamaModel = "gemma4:12b";
 
     [Serializable]
     private sealed class ChatRequest { public string message; }
@@ -44,7 +45,14 @@ public sealed class RikuDesktopClient : MonoBehaviour
     [Serializable]
     private sealed class TranscribeReply { public string text; public string error; }
     [Serializable]
-    private sealed class BootstrapReply { public bool ready; public string setupIssue; }
+    private sealed class ProviderInfo { public string id; public string model; }
+    [Serializable]
+    private sealed class BootstrapReply
+    {
+        public bool ready;
+        public string setupIssue;
+        public ProviderInfo[] providers;
+    }
 
     public void Configure(InputField messageInput, Text conversation, Text statusLabel,
         Text microphoneCaption, AudioSource source)
@@ -69,6 +77,12 @@ public sealed class RikuDesktopClient : MonoBehaviour
                 yield break;
             }
             var bootstrap = JsonUtility.FromJson<BootstrapReply>(request.downloadHandler.text);
+            if (bootstrap?.providers != null)
+            {
+                foreach (var provider in bootstrap.providers)
+                    if (provider.id == "ollama" && !string.IsNullOrWhiteSpace(provider.model))
+                        ollamaModel = provider.model;
+            }
             SetStatus(bootstrap != null && bootstrap.ready ? "会話できます" :
                 (bootstrap?.setupIssue ?? "AIモデルの準備を確認してください。"));
         }
@@ -289,5 +303,35 @@ public sealed class RikuDesktopClient : MonoBehaviour
     private void OnDestroy()
     {
         if (recording) Microphone.End(null);
+    }
+
+    private void OnApplicationQuit()
+    {
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+        // Keep Ollama itself running, but release this desktop app's conversation model.
+        string executable = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Programs", "Ollama", "ollama.exe");
+        if (!File.Exists(executable))
+        {
+            Debug.LogWarning("Ollama executable was not found; the model remains loaded.");
+            return;
+        }
+        try
+        {
+            var start = new System.Diagnostics.ProcessStartInfo(executable, "stop " + ollamaModel)
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
+            };
+            using (var process = System.Diagnostics.Process.Start(start))
+                process?.WaitForExit(5000);
+        }
+        catch (Exception error)
+        {
+            Debug.LogWarning("Ollama model could not be unloaded: " + error.Message);
+        }
+#endif
     }
 }
