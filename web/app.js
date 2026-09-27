@@ -11,7 +11,6 @@ const stopButton = document.querySelector("#conversation-stop");
 const speakerToggle = document.querySelector("#speaker-toggle");
 const voiceState = document.querySelector("#voice-state");
 const voiceEngineName = document.querySelector("#voice-engine-name");
-const identity = document.querySelector(".identity");
 const processMonitor = document.querySelector(".process-monitor");
 const processNowLabel = document.querySelector("#process-now-label");
 const processNowDetail = document.querySelector("#process-now-detail");
@@ -19,25 +18,15 @@ const processSteps = [...document.querySelectorAll(".process-step")];
 const processDurations = new Map(
   [...document.querySelectorAll("[data-duration]")].map((element) => [element.dataset.duration, element]),
 );
-const avatarImage = document.querySelector("#avatar-image");
-const avatar = document.querySelector(".avatar");
-const avatarStateLabel = document.querySelector("#avatar-state-label");
-const emotionLabel = document.querySelector("#emotion-label");
 const currentDatetime = document.querySelector("#current-datetime");
 const liveTranscript = document.querySelector("#live-transcript");
 const liveTranscriptText = document.querySelector("#live-transcript-text");
 const liveTranscriptHint = document.querySelector("#live-transcript-hint");
 
 const PROCESS_STAGES = ["listening", "transcribing", "judging", "thinking", "synthesizing", "speaking"];
-const EMOTION_LABELS = {
-  neutral: "通常", happy: "嬉しい", excited: "興奮",
-  thinking: "考え中", surprised: "驚き", concerned: "困り",
-};
-const EMOTIONS = new Set(Object.keys(EMOTION_LABELS));
-const GESTURES = new Set(["nod", "tilt", "wave", "point", "cheer"]);
+const EMOTIONS = new Set(["neutral", "happy", "excited", "thinking", "surprised", "concerned"]);
 let speechPlaybackStartedAt = 0;
-let gestureResetTimer = null;
-let currentAnimation = { emotion: "happy", gesture: "wave", intensity: 0.65 };
+let currentVoiceTone = { emotion: "happy", intensity: 0.65 };
 let clockTimeZone = "Asia/Tokyo";
 let clockOffsetMs = 0;
 
@@ -62,22 +51,10 @@ function updateCurrentDatetime() {
 updateCurrentDatetime();
 setInterval(updateCurrentDatetime, 1000);
 
-function applyAnimation(animation = {}) {
-  const emotion = EMOTIONS.has(animation.emotion) ? animation.emotion : "neutral";
-  const gesture = GESTURES.has(animation.gesture) ? animation.gesture : "nod";
-  const intensity = Math.min(1, Math.max(0.3, Number(animation.intensity) || 0.65));
-  currentAnimation = { emotion, gesture, intensity };
-  if (!identity) return;
-  identity.dataset.emotion = emotion;
-  if (emotionLabel) emotionLabel.textContent = EMOTION_LABELS[emotion];
-  identity.style.setProperty("--gesture-offset", `${(intensity * 12).toFixed(1)}px`);
-  identity.style.setProperty("--gesture-angle", `${(intensity * 3.2).toFixed(2)}deg`);
-  identity.style.setProperty("--gesture-scale", (1 + intensity * 0.024).toFixed(3));
-  delete identity.dataset.gesture;
-  void identity.offsetWidth;
-  identity.dataset.gesture = gesture;
-  if (gestureResetTimer) clearTimeout(gestureResetTimer);
-  gestureResetTimer = setTimeout(() => { delete identity.dataset.gesture; }, 2900);
+function setVoiceTone(tone = {}) {
+  const emotion = EMOTIONS.has(tone.emotion) ? tone.emotion : "neutral";
+  const intensity = Math.min(1, Math.max(0.3, Number(tone.intensity) || 0.65));
+  currentVoiceTone = { emotion, intensity };
 }
 
 function formatDuration(milliseconds) {
@@ -102,18 +79,6 @@ function setProcessStage(stage, label, detail = "") {
   processMonitor.classList.toggle("is-error", stage === "error");
   processNowLabel.textContent = label;
   processNowDetail.textContent = detail;
-  if (identity) identity.dataset.state = stage;
-  const avatarLabels = {
-    idle: "STANDBY",
-    listening: "LISTENING",
-    transcribing: "TRANSCRIBING",
-    judging: "CHECKING TURN",
-    thinking: "THINKING",
-    synthesizing: "VOICE READY",
-    speaking: "SPEAKING",
-    error: "ERROR",
-  };
-  if (avatarStateLabel) avatarStateLabel.textContent = avatarLabels[stage] || "STANDBY";
   processSteps.forEach((step, index) => {
     step.classList.toggle("is-active", index === stageIndex);
     step.classList.toggle("is-complete", stageIndex > index);
@@ -151,13 +116,6 @@ let voiceFrames = 0;
 let pendingText = "";
 let decisionInFlight = false;
 let conversationHeartbeat = null;
-let lipSyncContext = null;
-let lipSyncSource = null;
-let lipSyncAnalyser = null;
-let lipSyncData = null;
-let lipSyncFrame = null;
-let syntheticLipTimer = null;
-let smoothedMouthOpen = 0;
 
 const AudioContextClass = window.AudioContext || window.webkitAudioContext;
 const recorderSupported = Boolean(navigator.mediaDevices?.getUserMedia && window.MediaRecorder && AudioContextClass);
@@ -170,65 +128,6 @@ function updateLiveTranscript(text = "", state = "idle", hint = "") {
   liveTranscript.classList.toggle("is-finalizing", state === "finalizing");
   liveTranscriptText.textContent = text || "マイクで話すと、ここに認識中の内容が表示されます";
   liveTranscriptHint.textContent = hint || "話し終わりを検出すると自動で送信します";
-}
-
-function setMouthOpen(value) {
-  const normalized = Math.min(1, Math.max(0, Number(value) || 0));
-  document.querySelector(".avatar")?.style.setProperty("--mouth-open", normalized.toFixed(3));
-}
-
-function stopLipSync() {
-  if (lipSyncFrame) cancelAnimationFrame(lipSyncFrame);
-  if (syntheticLipTimer) clearInterval(syntheticLipTimer);
-  lipSyncFrame = null;
-  syntheticLipTimer = null;
-  try { lipSyncSource?.disconnect(); } catch {}
-  try { lipSyncAnalyser?.disconnect(); } catch {}
-  lipSyncSource = null;
-  lipSyncAnalyser = null;
-  lipSyncData = null;
-  smoothedMouthOpen = 0;
-  setMouthOpen(0);
-}
-
-async function prepareAudioLipSync(audio) {
-  stopLipSync();
-  if (!AudioContextClass) return;
-  if (!lipSyncContext || lipSyncContext.state === "closed") lipSyncContext = new AudioContextClass();
-  if (lipSyncContext.state === "suspended") await lipSyncContext.resume();
-  lipSyncSource = lipSyncContext.createMediaElementSource(audio);
-  lipSyncAnalyser = lipSyncContext.createAnalyser();
-  lipSyncAnalyser.fftSize = 256;
-  lipSyncAnalyser.smoothingTimeConstant = 0.58;
-  lipSyncData = new Uint8Array(lipSyncAnalyser.fftSize);
-  lipSyncSource.connect(lipSyncAnalyser);
-  lipSyncAnalyser.connect(lipSyncContext.destination);
-
-  const updateMouth = () => {
-    if (!lipSyncAnalyser) return;
-    lipSyncAnalyser.getByteTimeDomainData(lipSyncData);
-    let energy = 0;
-    for (const sample of lipSyncData) {
-      const centered = (sample - 128) / 128;
-      energy += centered * centered;
-    }
-    const rms = Math.sqrt(energy / lipSyncData.length);
-    const target = Math.min(1, Math.max(0, (rms - 0.012) * 13));
-    smoothedMouthOpen = smoothedMouthOpen * 0.48 + target * 0.52;
-    setMouthOpen(smoothedMouthOpen < 0.07 ? 0 : smoothedMouthOpen);
-    lipSyncFrame = requestAnimationFrame(updateMouth);
-  };
-  updateMouth();
-}
-
-function startSyntheticLipSync() {
-  stopLipSync();
-  let phase = 0;
-  syntheticLipTimer = setInterval(() => {
-    phase += 1;
-    const pause = phase % 9 === 0 || phase % 13 === 0;
-    setMouthOpen(pause ? 0 : 0.28 + Math.random() * 0.72);
-  }, 110);
 }
 
 function updateControls() {
@@ -272,8 +171,6 @@ function applyProviderStatus(data) {
 function finishSpeechPlayback(continueSequence = false) {
   if (speechPlaybackStartedAt) setStepDuration("speaking", performance.now() - speechPlaybackStartedAt);
   speechPlaybackStartedAt = 0;
-  stopLipSync();
-  identity?.classList.remove("speaking");
   if (currentAudioUrl) URL.revokeObjectURL(currentAudioUrl);
   currentAudioUrl = "";
   currentAudio = null;
@@ -310,15 +207,13 @@ function browserSpeak(text) {
       neutral: [1.02, 1.04], happy: [1.06, 1.1], excited: [1.13, 1.16],
       thinking: [0.95, 1.0], surprised: [1.09, 1.18], concerned: [0.93, 0.96],
     };
-    [utterance.rate, utterance.pitch] = browserVoiceProfiles[currentAnimation.emotion] || browserVoiceProfiles.neutral;
+    [utterance.rate, utterance.pitch] = browserVoiceProfiles[currentVoiceTone.emotion] || browserVoiceProfiles.neutral;
     const voices = window.speechSynthesis.getVoices();
     utterance.voice = voices.find((voice) => voice.lang.toLowerCase().startsWith("ja")) || null;
     utterance.onstart = () => {
       speechPlaybackStartedAt = performance.now();
-      identity?.classList.add("speaking");
       voiceState.textContent = `${personaName}が話しています`;
       setProcessStage("speaking", "話しています", "ブラウザ音声を再生中");
-      startSyntheticLipSync();
     };
     utterance.onend = utterance.onerror = finishSpeechPlayback;
     window.speechSynthesis.speak(utterance);
@@ -368,7 +263,7 @@ async function synthesizeSpeechChunk(text) {
     const response = await fetch("/api/voice", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: candidate, emotion: currentAnimation.emotion, intensity: currentAnimation.intensity }),
+      body: JSON.stringify({ text: candidate, emotion: currentVoiceTone.emotion, intensity: currentVoiceTone.intensity }),
     });
     if (response.ok) {
       return {
@@ -384,16 +279,10 @@ async function synthesizeSpeechChunk(text) {
 async function playSpeechChunk(blob, chunkNumber, chunkCount) {
   currentAudioUrl = URL.createObjectURL(blob);
   currentAudio = new Audio(currentAudioUrl);
-  try {
-    await prepareAudioLipSync(currentAudio);
-  } catch {
-    startSyntheticLipSync();
-  }
   await new Promise((resolve, reject) => {
     speechResolver = resolve;
     currentAudio.onplay = () => {
       speechPlaybackStartedAt = performance.now();
-      identity?.classList.add("speaking");
       voiceState.textContent = `${personaName}が${voiceLabel}で話しています（${chunkNumber}/${chunkCount}）`;
       setProcessStage("speaking", "話しています", `短い文を順番に再生中 ${chunkNumber}/${chunkCount}`);
     };
@@ -857,7 +746,7 @@ async function sendMessage(text) {
   updateControls();
   voiceState.textContent = `${personaName}が考えています…`;
   setProcessStage("thinking", "返事を考えています", "対話AIが内容を理解して回答を作成中");
-  applyAnimation({ emotion: "thinking", gesture: "tilt", intensity: 0.55 });
+  setVoiceTone({ emotion: "thinking", intensity: 0.55 });
   const thinking = addMessage("ai", "考え中…", "thinking");
   const answerBody = thinking.querySelector("p");
   const speechQueue = createStreamingSpeechQueue();
@@ -869,7 +758,7 @@ async function sendMessage(text) {
         answerBody.textContent = event.text;
         setProcessStage('thinking', event.text, '');
       } else if (event.type === "animation") {
-        applyAnimation(event.animation);
+        setVoiceTone(event.animation);
       } else if (event.type === "delta") {
         if (!streamedAnswer) {
           thinking.classList.remove("thinking");
@@ -891,7 +780,7 @@ async function sendMessage(text) {
     if (finalEvent.memoryProposal) renderMemoryProposal(finalEvent.memoryProposal);
     thinking.classList.remove("thinking");
     answerBody.textContent = finalEvent.answer;
-    applyAnimation(finalEvent.animation);
+    setVoiceTone(finalEvent.animation);
     addGuideCards(thinking, finalEvent.guideCards);
     if (finalEvent.sources?.length) {
       const references = document.createElement('div');
@@ -952,10 +841,6 @@ async function bootstrap() {
     if (voiceEngineName) voiceEngineName.textContent = voiceEngine === "browser" ? "ブラウザ音声" : voiceLabel;
     sttReady = Boolean(data.stt?.ready && data.turnDetection?.ready);
     document.querySelector("#title").textContent = data.title;
-    const personaNameElement = document.querySelector("#persona-name");
-    const avatarLetterElement = document.querySelector("#avatar-letter");
-    if (personaNameElement) personaNameElement.textContent = personaName;
-    if (avatarLetterElement) avatarLetterElement.textContent = personaName.slice(0, 1);
     provider.replaceChildren();
     for (const item of data.providers) {
       const option = document.createElement("option");
@@ -1014,7 +899,7 @@ provider.addEventListener("change", async () => {
     messages.replaceChildren();
     resetStepDurations();
     addMessage("ai", `接続先を${data.label}に切り替えた。ここから新しい会話だ！`);
-    applyAnimation({ emotion: "excited", gesture: "cheer", intensity: 0.72 });
+    setVoiceTone({ emotion: "excited", intensity: 0.72 });
     applyProviderStatus(data);
   } catch (error) {
     addMessage("ai", error.message);
@@ -1031,7 +916,7 @@ reset.addEventListener("click", async () => {
     messages.replaceChildren();
     resetStepDurations();
     addMessage("ai", "ここから新しい会話にしよう。今日あったことでも、考えていることでも聞かせて。");
-    applyAnimation({ emotion: "happy", gesture: "wave", intensity: 0.72 });
+    setVoiceTone({ emotion: "happy", intensity: 0.72 });
   } catch (error) {
     addMessage("ai", error.message);
   } finally {
@@ -1040,40 +925,12 @@ reset.addEventListener("click", async () => {
 });
 
 if (!recorderSupported) voiceState.textContent = "このブラウザは連続音声対話に対応していません";
-avatarImage?.addEventListener("error", () => avatarImage.classList.add("is-missing"));
-if (identity && avatar && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-  const scheduleBlink = () => {
-    window.setTimeout(() => {
-      if (!document.hidden) {
-        avatar.classList.add("is-blinking");
-        window.setTimeout(() => avatar.classList.remove("is-blinking"), 170);
-      }
-      scheduleBlink();
-    }, 2600 + Math.random() * 3500);
-  };
-  scheduleBlink();
-
-  identity.addEventListener("pointermove", (event) => {
-    if (event.pointerType === "touch") return;
-    const bounds = identity.getBoundingClientRect();
-    const x = (event.clientX - bounds.left) / bounds.width - 0.5;
-    const y = (event.clientY - bounds.top) / bounds.height - 0.5;
-    identity.style.setProperty("--look-x", `${(x * 12).toFixed(1)}px`);
-    identity.style.setProperty("--look-y", `${(y * 8).toFixed(1)}px`);
-    identity.style.setProperty("--look-angle", `${(x * 1.3).toFixed(2)}deg`);
-  });
-  identity.addEventListener("pointerleave", () => {
-    identity.style.setProperty("--look-x", "0px");
-    identity.style.setProperty("--look-y", "0px");
-    identity.style.setProperty("--look-angle", "0deg");
-  });
-}
 window.addEventListener("pagehide", () => {
   if (!conversationActive) return;
   const payload = new Blob([JSON.stringify({ active: false })], { type: "application/json" });
   navigator.sendBeacon("/api/conversation-state", payload);
 });
-applyAnimation(currentAnimation);
+setVoiceTone(currentVoiceTone);
 let currentMemoryProposal = null;
 function renderMemoryProposal(proposal) {
   currentMemoryProposal = proposal;

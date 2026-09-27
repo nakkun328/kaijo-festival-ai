@@ -19,13 +19,3 @@ tmp/
 *.log
 data/aivisspeech-appdata/
 data/festival/knowledge.raw.json
-
-# Unity desktop application generated files
-unity/RikuDesktop/Library/
-unity/RikuDesktop/Temp/
-unity/RikuDesktop/Obj/
-unity/RikuDesktop/Build/
-unity/RikuDesktop/Builds/
-unity/RikuDesktop/Logs/
-unity/RikuDesktop/UserSettings/
-unity/RikuDesktop/.vs/

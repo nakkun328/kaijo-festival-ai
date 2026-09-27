@@ -186,7 +186,7 @@ def render_guide_card_svg(record: dict[str, Any], festival_name: str = "第135�
 
 
 def parse_animation_directive(answer: str) -> tuple[str, dict[str, Any]]:
-    """Remove the private avatar control line and return safe animation values."""
+    """Strip an optional legacy control line and return safe voice-tone values."""
     match = ANIMATION_PATTERN.match(answer)
     if match:
         emotion = match.group("emotion").lower()
@@ -585,13 +585,6 @@ class ExhibitionApp:
 日付・曜日・時刻に関する回答は、この日本時間を基準にすること。
 秒は推測せず、必要な場合も分単位で答えること。
 
-## アバター演技指定（展示画面専用）
-回答の先頭に、必ず次の形式の制御行を1行だけ付けること。
-[[emotion:EMOTION|gesture:GESTURE|intensity:0.7]]
-EMOTIONは neutral, happy, excited, thinking, surprised, concerned のいずれか。
-GESTUREは nod, tilt, wave, point, cheer のいずれか。
-intensityは0.3〜1.0。本文の感情と動作に自然に合う値を選ぶ。
-制御行について本文で説明しないこと。
 """
         if self.owner:
             theme = self.daily_store.active_theme(self.owner)

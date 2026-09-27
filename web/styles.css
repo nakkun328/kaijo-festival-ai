@@ -128,115 +128,12 @@ h1 { margin: 0; font-size: clamp(1.55rem, 3vw, 2.55rem); letter-spacing: .04em; 
 
 .chat-shell {
   min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(290px, 360px) minmax(0, 1fr);
   border: 1px solid var(--line);
   background: var(--panel);
   box-shadow: 0 30px 90px rgba(0, 0, 0, .34);
   backdrop-filter: blur(18px);
   overflow: visible;
 }
-
-.identity {
-  --emotion-color: var(--cyan);
-  --gesture-intensity: .65;
-  --gesture-offset: 8px;
-  --gesture-angle: 2deg;
-  --gesture-scale: 1.016;
-  position: sticky;
-  top: 12px;
-  align-self: start;
-  height: min(68vh, 660px);
-  min-height: 490px;
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-  place-items: stretch center;
-  overflow: hidden;
-  border-right: 1px solid var(--line);
-  background: linear-gradient(160deg, rgba(22, 100, 127, .18), rgba(5, 16, 28, .6));
-}
-
-.avatar-stage { z-index: 2; position: relative; min-height: 0; width: 100%; display: grid; place-items: end center; transform-origin: 50% 88%; }
-.avatar-parallax { width: 100%; height: 100%; min-height: 0; display: grid; place-items: end center; transform: translate(var(--look-x, 0px), var(--look-y, 0px)) rotate(var(--look-angle, 0deg)); transition: transform .42s cubic-bezier(.2,.75,.2,1); }
-.avatar {
-  --mouth-open: 0;
-  position: relative;
-  width: min(118%, 440px);
-  height: 100%;
-  display: grid;
-  place-items: end center;
-  transform-origin: 50% 90%;
-  animation: avatar-idle 4.8s ease-in-out infinite;
-}
-.avatar::after { content: ""; position: absolute; left: 18%; right: 18%; bottom: 1%; height: 8%; border-radius: 50%; background: rgba(0, 0, 0, .38); filter: blur(16px); z-index: -1; }
-.avatar img { grid-area: 1 / 1; width: 100%; height: 100%; object-fit: contain; object-position: center bottom; filter: drop-shadow(0 15px 22px rgba(0, 0, 0, .45)) drop-shadow(0 0 18px rgba(81, 227, 255, .16)); }
-.avatar .avatar-expression {
-  z-index: 1;
-  opacity: 0;
-  filter: none;
-  pointer-events: none;
-  transition: opacity .16s ease;
-  -webkit-mask-image: radial-gradient(ellipse 20% 13% at 50% 19%, #000 0 66%, rgba(0, 0, 0, .78) 82%, transparent 100%);
-  mask-image: radial-gradient(ellipse 20% 13% at 50% 19%, #000 0 66%, rgba(0, 0, 0, .78) 82%, transparent 100%);
-}
-.identity[data-emotion="neutral"] .avatar-expression[data-expression="neutral"],
-.identity[data-emotion="excited"] .avatar-expression[data-expression="excited"],
-.identity[data-emotion="thinking"] .avatar-expression[data-expression="thinking"],
-.identity[data-emotion="surprised"] .avatar-expression[data-expression="surprised"],
-.identity[data-emotion="concerned"] .avatar-expression[data-expression="concerned"] { opacity: 1; }
-.avatar .avatar-mouth-closed {
-  z-index: 2;
-  opacity: calc(1 - var(--mouth-open));
-  filter: none;
-  pointer-events: none;
-  will-change: opacity;
-  -webkit-mask-image: radial-gradient(ellipse 13% 6% at 50% 21%, #000 0 43%, rgba(0, 0, 0, .88) 58%, transparent 100%);
-  mask-image: radial-gradient(ellipse 13% 6% at 50% 21%, #000 0 43%, rgba(0, 0, 0, .88) 58%, transparent 100%);
-}
-.avatar .avatar-blink {
-  z-index: 2;
-  opacity: 0;
-  filter: none;
-  pointer-events: none;
-  -webkit-mask-image: radial-gradient(ellipse 8% 3.5% at 41% 18%, #000 45%, transparent 100%), radial-gradient(ellipse 8% 3.5% at 50% 15%, #000 45%, transparent 100%);
-  mask-image: radial-gradient(ellipse 8% 3.5% at 41% 18%, #000 45%, transparent 100%), radial-gradient(ellipse 8% 3.5% at 50% 15%, #000 45%, transparent 100%);
-}
-.avatar.is-blinking .avatar-blink { opacity: 1; }
-.avatar img.is-missing { display: none; }
-.avatar-fallback { display: none; align-self: center; font-size: clamp(4rem, 8vw, 7rem); font-weight: 800; color: var(--ink); text-shadow: 5px 5px 0 rgba(81, 227, 255, .24); }
-.avatar img.is-missing ~ .avatar-fallback { display: block; }
-.avatar-state { position: absolute; z-index: 4; left: 50%; bottom: 13px; transform: translateX(-50%); display: flex; align-items: center; gap: 9px; padding: 8px 13px; border: 1px solid color-mix(in srgb, var(--emotion-color) 42%, transparent); background: rgba(4, 17, 28, .82); box-shadow: 0 8px 28px rgba(0, 0, 0, .35); backdrop-filter: blur(8px); }
-.avatar-state b { color: var(--emotion-color); font: 800 .66rem/1 ui-monospace, monospace; letter-spacing: .13em; }
-.emotion-label { padding-left: 9px; border-left: 1px solid color-mix(in srgb, var(--emotion-color) 32%, transparent); color: var(--emotion-color); font-size: .68rem; font-weight: 800; white-space: nowrap; }
-.voice-bars { height: 14px; display: flex; align-items: center; gap: 2px; }
-.voice-bars i { width: 2px; height: 4px; background: var(--cyan); opacity: .55; }
-.identity[data-state="listening"] .avatar { animation: avatar-listening 2s ease-in-out infinite; }
-.identity[data-state="transcribing"] .avatar,
-.identity[data-state="judging"] .avatar,
-.identity[data-state="thinking"] .avatar,
-.identity[data-state="synthesizing"] .avatar { animation: avatar-thinking 2.8s ease-in-out infinite; }
-.identity[data-state="speaking"] .avatar { animation: avatar-speaking .42s ease-in-out infinite alternate; }
-.identity[data-state="speaking"] .voice-bars i { animation: voice-bar .48s ease-in-out infinite alternate; opacity: 1; }
-.identity[data-state="speaking"] .voice-bars i:nth-child(2) { animation-delay: -.23s; }
-.identity[data-state="speaking"] .voice-bars i:nth-child(3) { animation-delay: -.37s; }
-.identity[data-state="speaking"] .voice-bars i:nth-child(4) { animation-delay: -.12s; }
-.identity[data-state="error"] .avatar { filter: saturate(.55); animation: avatar-error .45s ease-out both; }
-.identity[data-emotion="happy"] { --emotion-color: #56f2a7; }
-.identity[data-emotion="excited"] { --emotion-color: #ffab5e; }
-.identity[data-emotion="thinking"] { --emotion-color: #bca2ff; }
-.identity[data-emotion="surprised"] { --emotion-color: #ffe778; }
-.identity[data-emotion="concerned"] { --emotion-color: #82b7ff; }
-.identity[data-gesture="nod"] .avatar-stage { animation: gesture-nod .72s ease-in-out 2; }
-.identity[data-gesture="tilt"] .avatar-stage { animation: gesture-tilt 1.4s ease-in-out 1; }
-.identity[data-gesture="wave"] .avatar-stage { animation: gesture-wave .55s ease-in-out 4; }
-.identity[data-gesture="point"] .avatar-stage { animation: gesture-point .72s ease-out 2; }
-.identity[data-gesture="cheer"] .avatar-stage { animation: gesture-cheer .58s ease-in-out 3; }
-.pulse { position: absolute; border: 1px solid rgba(81, 227, 255, .22); border-radius: 50%; animation: pulse 4s ease-out infinite; }
-.pulse-one { width: 320px; height: 320px; top: 23%; }
-.pulse-two { width: 440px; height: 440px; top: 12%; animation-delay: 2s; }
-.identity p { z-index: 2; display: grid; margin: 0 0 20px; text-align: center; }
-.identity p > b { font-size: 1.55rem; }
-.identity p span { margin-top: 4px; color: var(--muted); font: 600 .7rem/1.2 ui-monospace, monospace; letter-spacing: .18em; }
 
 .conversation { min-width: 0; min-height: 0; padding: clamp(20px, 3vw, 40px); display: grid; grid-template-rows: minmax(220px, 1fr) repeat(9, auto); gap: 14px; }
 .messages { min-height: 0; overflow-y: auto; padding: 0 12px 16px 0; scroll-behavior: smooth; }
@@ -286,29 +183,12 @@ h1 { margin: 0; font-size: clamp(1.55rem, 3vw, 2.55rem); letter-spacing: .04em; 
 .composer .mic:hover, .composer .mic:focus-visible { border-color: var(--cyan); outline: none; }
 .composer .mic.listening { color: #06151e; background: var(--orange); border-color: var(--orange); animation: mic-pulse 1s ease-in-out infinite; }
 .composer .mic svg { width: 24px; }
-.identity.speaking { background: linear-gradient(160deg, rgba(22, 132, 164, .24), rgba(5, 16, 28, .64)); }
 .privacy { margin: 0; color: var(--muted); font-size: .8rem; text-align: center; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 
 @keyframes pulse { from { transform: scale(.62); opacity: .7; } to { transform: scale(1.18); opacity: 0; } }
-@keyframes avatar-idle { 0%, 100% { transform: translateY(3px) scale(1); } 50% { transform: translateY(-5px) scale(1.012); } }
-@keyframes avatar-listening { 0%, 100% { transform: rotate(-.4deg) translateY(2px); } 50% { transform: rotate(1.2deg) translateY(-4px) scale(1.015); } }
-@keyframes avatar-thinking { 0%, 100% { transform: translateX(-2px) translateY(2px); } 50% { transform: translateX(5px) translateY(-3px) rotate(.7deg); } }
-@keyframes avatar-speaking { from { transform: translateY(1px) rotate(-.35deg) scale(1.008); } to { transform: translateY(-3px) rotate(.35deg) scale(1.02); } }
-@keyframes avatar-error { 30% { transform: translateX(-5px); } 65% { transform: translateX(5px); } }
-@keyframes voice-bar { from { height: 4px; } to { height: 14px; } }
 @keyframes mic-pulse { 50% { box-shadow: 0 0 0 8px rgba(255, 155, 84, .14); } }
 @keyframes process-beacon { 50% { opacity: .5; transform: scale(.78); } }
-@keyframes gesture-nod { 35% { transform: translateY(var(--gesture-offset)) rotate(.4deg); } 70% { transform: translateY(-3px); } }
-@keyframes gesture-tilt { 35%, 70% { transform: rotate(var(--gesture-angle)) translateX(5px); } }
-@keyframes gesture-wave { 33% { transform: rotate(calc(0deg - var(--gesture-angle))) translateX(-5px); } 66% { transform: rotate(var(--gesture-angle)) translateX(5px); } }
-@keyframes gesture-point { 42% { transform: translateY(-5px) scale(var(--gesture-scale)); } }
-@keyframes gesture-cheer { 45% { transform: translateY(calc(0px - var(--gesture-offset))) scale(var(--gesture-scale)); } }
-
-@media (prefers-reduced-motion: reduce) {
-  .identity[data-gesture] .avatar-stage { animation: none; }
-  .avatar, .identity[data-state] .avatar, .avatar-parallax, .pulse { animation: none; transition: none; }
-}
 
 @media (max-width: 760px) {
   body { overflow: auto; }
@@ -328,12 +208,7 @@ h1 { margin: 0; font-size: clamp(1.55rem, 3vw, 2.55rem); letter-spacing: .04em; 
   .process-step { scroll-snap-align: center; }
   .process-step:not(:last-child)::after { left: calc(100% + 4px); width: 10px; }
   .process-step:not(:last-child)::before { left: calc(100% + 12px); }
-  .chat-shell { grid-template-columns: 1fr; min-height: calc(100vh - 245px); }
-  .identity { position: relative; top: auto; display: grid; height: 280px; min-height: 0; border-right: 0; border-bottom: 1px solid var(--line); }
-  .avatar { width: min(86%, 280px); }
-  .identity p { position: absolute; z-index: 5; left: 18px; bottom: 14px; margin: 0; text-align: left; }
-  .identity p > b { font-size: 1.15rem; }
-  .avatar-state { left: auto; right: 12px; bottom: 12px; transform: none; padding: 6px 8px; }
+  .chat-shell { min-height: calc(100vh - 245px); }
   .message { max-width: 92%; }
   .conversation { min-height: calc(100vh - 110px); padding: 18px; }
   .reset { padding: 9px 12px; }
