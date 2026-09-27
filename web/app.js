@@ -14,6 +14,7 @@ const voiceEngineName = document.querySelector("#voice-engine-name");
 const processMonitor = document.querySelector(".process-monitor");
 const processNowLabel = document.querySelector("#process-now-label");
 const processNowDetail = document.querySelector("#process-now-detail");
+const processModeLabel = document.querySelector("#process-mode");
 const processSteps = [...document.querySelectorAll(".process-step")];
 const processDurations = new Map(
   [...document.querySelectorAll("[data-duration]")].map((element) => [element.dataset.duration, element]),
@@ -22,8 +23,14 @@ const currentDatetime = document.querySelector("#current-datetime");
 const liveTranscript = document.querySelector("#live-transcript");
 const liveTranscriptText = document.querySelector("#live-transcript-text");
 const liveTranscriptHint = document.querySelector("#live-transcript-hint");
+const conversation = document.querySelector(".conversation");
+// Keep account, memory, and theme controls, but place them after the main chat controls.
+if (conversation) {
+  for (const panel of conversation.querySelectorAll("details.memory-panel")) conversation.append(panel);
+}
 
 const PROCESS_STAGES = ["listening", "transcribing", "judging", "thinking", "synthesizing", "speaking"];
+let processMode = "text";
 const EMOTIONS = new Set(["neutral", "happy", "excited", "thinking", "surprised", "concerned"]);
 let speechPlaybackStartedAt = 0;
 let currentVoiceTone = { emotion: "happy", intensity: 0.65 };
@@ -79,11 +86,12 @@ function setProcessStage(stage, label, detail = "") {
   processMonitor.classList.toggle("is-error", stage === "error");
   processNowLabel.textContent = label;
   processNowDetail.textContent = detail;
+  processModeLabel.textContent = stageIndex < 0 ? "待機" : processMode === "voice" ? "音声で対話中" : "文字で対話中";
   processSteps.forEach((step, index) => {
     step.classList.toggle("is-active", index === stageIndex);
-    step.classList.toggle("is-complete", stageIndex > index);
+    step.classList.toggle("is-complete", stageIndex > index && (processMode === "voice" || index >= 3));
+    step.classList.toggle("is-skipped", stageIndex >= 3 && processMode === "text" && index < 3);
   });
-  if (stageIndex >= 0) processSteps[stageIndex].scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
 }
 
 let personaName = "リク";
@@ -422,6 +430,7 @@ function watchVoice() {
 
 function beginListeningCycle(calibrate = false) {
   if (!conversationActive || busy || !mediaStream) return;
+  processMode = "voice";
   audioChunks = [];
   speechStartedAt = 0;
   lastVoiceAt = 0;
@@ -585,7 +594,7 @@ async function answerToPendingText() {
   }
   busy = false;
   updateLiveTranscript(text, "finalizing", "区切りを検出しました。自動送信しています…");
-  await sendMessage(text);
+  await sendMessage(text, "voice");
   updateLiveTranscript("", conversationActive ? "listening" : "idle", conversationActive ? "次の発言を待っています" : "対話スタートを押してください");
   if (conversationActive) beginListeningCycle();
 }
@@ -738,8 +747,9 @@ function createStreamingSpeechQueue() {
   };
 }
 
-async function sendMessage(text) {
+async function sendMessage(text, source = "text") {
   if (!text.trim() || !providerReady) return;
+  processMode = source;
   addMessage("user", text);
   input.value = "";
   busy = true;
@@ -877,7 +887,7 @@ composer.addEventListener("submit", async (event) => {
   const text = input.value.trim();
   if (!text) return;
   if (conversationActive) stopRecording("stop");
-  await sendMessage(text);
+  await sendMessage(text, "text");
   if (conversationActive) beginListeningCycle();
 });
 
